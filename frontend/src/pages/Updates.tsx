@@ -20,22 +20,247 @@ type UpdateStatus = {
   last_exit_code?: number | null
 }
 
+// Угадываем прогресс по строкам лога
+function guessProgress(log: string[]): number {
+  if (log.length === 0) return 0
+  const text = log.join("\n").toLowerCase()
+  if (text.includes("перезапуск") || text.includes("restart") || text.includes("docker compose up")) return 90
+  if (text.includes("docker compose build") || text.includes("building")) return 70
+  if (text.includes("git pull") || text.includes("clone") || text.includes("загрузк")) return 50
+  if (text.includes("бэкап") || text.includes("backup") || text.includes("резервн")) return 30
+  if (text.includes("начало") || text.includes("start") || text.includes("запуск")) return 10
+  return Math.min(5 + log.length * 2, 85)
+}
+
+function ProgressBar({ pct, running }: { pct: number; running: boolean }) {
+  return (
+    <div style={{
+      width: "100%",
+      height: 32,
+      background: "#000",
+      border: "3px solid #fff",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      <div style={{
+        width: `${pct}%`,
+        height: "100%",
+        background: "#fff",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        transition: running ? "width 0.8s ease" : "none",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        paddingRight: pct > 10 ? 8 : 0,
+      }} />
+      <div style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        fontWeight: "bold",
+        fontSize: "0.9rem",
+        color: pct > 50 ? "#000" : "#fff",
+        mixBlendMode: "difference",
+        pointerEvents: "none",
+        userSelect: "none",
+      }}>
+        {pct}%
+      </div>
+    </div>
+  )
+}
+
+function UpdatePanel() {
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+  const [running, setRunning] = useState(false)
+  const [log, setLog] = useState<string[]>([])
+  const [showLog, setShowLog] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const logRef = useRef<HTMLDivElement>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const fetchStatus = async () => {
+    try {
+      const res = await apiFetch("/api/github-update/status")
+      const data = await res.json()
+      if (data.ok) {
+        setUpdateStatus(data.status)
+        const isRunning = !!data.status?.running
+        setRunning(isRunning)
+        if (!isRunning && data.status?.last_exit_code === 0) setProgress(100)
+      }
+    } catch {}
+  }
+
+  const fetchLog = async () => {
+    try {
+      const res = await apiFetch("/api/github-update/log?lines=300")
+      const data = await res.json()
+      if (data.ok) {
+        const lines: string[] = data.lines || []
+        setLog(lines)
+        if (running) setProgress(guessProgress(lines))
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    fetchStatus()
+  }, [])
+
+  useEffect(() => {
+    if (running) {
+      setShowLog(true)
+      setProgress(p => p < 5 ? 5 : p)
+      fetchLog()
+      pollRef.current = setInterval(async () => {
+        await fetchStatus()
+        await fetchLog()
+      }, 2000)
+    } else {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+      if (showLog) fetchLog()
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [running])
+
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight
+    }
+  }, [log])
+
+  const startUpdate = async () => {
+    setError(null)
+    setLog([])
+    setProgress(5)
+    try {
+      const res = await apiFetch("/api/github-update/run", { method: "POST" })
+      const data = await res.json()
+      if (data.started) {
+        setRunning(true)
+        setShowLog(true)
+      } else {
+        setError(data.detail || "Не удалось запустить обновление")
+        setProgress(0)
+      }
+    } catch {
+      setError("Ошибка соединения. Проверьте права доступа (нужна роль super_admin).")
+      setProgress(0)
+    }
+  }
+
+  const lastSuccess = updateStatus && !updateStatus.running && updateStatus.last_exit_code === 0 && updateStatus.last_finished_at
+  const lastFail = updateStatus && !updateStatus.running && updateStatus.last_exit_code != null && updateStatus.last_exit_code !== 0 && updateStatus.last_finished_at
+  const showProgress = running || (lastSuccess && progress > 0) || (lastFail && progress > 0)
+
+  return (
+    <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] flex items-center justify-center text-[var(--accent)]">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 .49-3.51" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-primary">Обновление панели</div>
+            <div className="text-xs text-muted mt-0.5">Загрузка и установка с GitHub</div>
+          </div>
+        </div>
+        {running ? (
+          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#3b82f6_12%,transparent)] text-blue-400 shrink-0 animate-pulse">Выполняется...</span>
+        ) : lastSuccess ? (
+          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#22c55e_12%,transparent)] text-emerald-400 shrink-0">Успешно</span>
+        ) : lastFail ? (
+          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#ef4444_12%,transparent)] text-rose-400 shrink-0">Ошибка</span>
+        ) : null}
+      </div>
+
+      <div className="text-xs text-muted bg-overlay-xs rounded-xl px-3 py-2.5 leading-relaxed">
+        Обновление загружает последнюю версию с GitHub, создаёт резервную копию данных и перезапускает контейнер.
+      </div>
+
+      {/* Progress bar */}
+      {showProgress && (
+        <ProgressBar pct={lastSuccess ? 100 : progress} running={running} />
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="text-xs text-rose-400 bg-[color-mix(in_srgb,#ef4444_8%,transparent)] rounded-lg px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      {/* Buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={startUpdate}
+          disabled={running}
+          className="flex-1 py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: "color-mix(in srgb, #22c55e 14%, transparent)",
+            color: "#22c55e",
+            border: "1px solid color-mix(in srgb, #22c55e 30%, transparent)",
+          }}
+        >
+          {running ? "Обновляется..." : "Обновить сейчас"}
+        </button>
+        {log.length > 0 && (
+          <button
+            onClick={() => setShowLog(v => !v)}
+            className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
+            style={{
+              background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+              color: "var(--accent)",
+              border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+            }}
+          >
+            {showLog ? "Скрыть лог" : "Лог"}
+          </button>
+        )}
+      </div>
+
+      {/* Log */}
+      {showLog && log.length > 0 && (
+        <div
+          ref={logRef}
+          className="rounded-xl border border-subtle p-3 font-mono text-[11px] leading-relaxed overflow-y-auto"
+          style={{ maxHeight: 280, background: "#0a0a0a", color: "#22c55e" }}
+        >
+          {log.map((line, i) => (
+            <div key={i} style={{
+              color: line.toLowerCase().includes("error") || line.toLowerCase().includes("ошибк") ? "#f87171"
+                : line.toLowerCase().includes("warn") ? "#fbbf24"
+                : line.startsWith("[✓]") || line.includes("успешн") ? "#4ade80"
+                : "#22c55e"
+            }}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function VersionCard({
-  title,
-  subtitle,
-  icon,
-  info,
-  status,
-  onCheck,
-  updateUrl,
+  title, subtitle, icon, info, status, onCheck, updateUrl,
 }: {
-  title: string
-  subtitle: string
-  icon: React.ReactNode
-  info: VersionInfo | null
-  status: Status
-  onCheck: () => void
-  updateUrl?: string
+  title: string; subtitle: string; icon: React.ReactNode
+  info: VersionInfo | null; status: Status; onCheck: () => void; updateUrl?: string
 }) {
   const isUpToDate = info && !info.error && !info.update_available && info.latest_version
   const hasUpdate = info && !info.error && info.update_available
@@ -84,16 +309,12 @@ function VersionCard({
       </div>
 
       {hasError && (
-        <div className="text-xs text-rose-400 bg-[color-mix(in_srgb,#ef4444_8%,transparent)] rounded-lg px-3 py-2">
-          {info.error}
-        </div>
+        <div className="text-xs text-rose-400 bg-[color-mix(in_srgb,#ef4444_8%,transparent)] rounded-lg px-3 py-2">{info.error}</div>
       )}
 
       {hasUpdate && updateUrl && (
         <a
-          href={updateUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={updateUrl} target="_blank" rel="noopener noreferrer"
           className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-amber-400 no-underline transition-opacity hover:opacity-80"
           style={{ background: "color-mix(in srgb, #f59e0b 10%, transparent)", border: "1px solid color-mix(in srgb, #f59e0b 25%, transparent)" }}
         >
@@ -122,166 +343,17 @@ function VersionCard({
   )
 }
 
-function UpdatePanel() {
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
-  const [running, setRunning] = useState(false)
-  const [log, setLog] = useState<string[]>([])
-  const [showLog, setShowLog] = useState(false)
-  const logRef = useRef<HTMLDivElement>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const fetchStatus = async () => {
-    try {
-      const res = await apiFetch("/api/github-update/status")
-      const data = await res.json()
-      if (data.ok) {
-        setUpdateStatus(data.status)
-        setRunning(!!data.status?.running)
-      }
-    } catch {}
-  }
-
-  const fetchLog = async () => {
-    try {
-      const res = await apiFetch("/api/github-update/log?lines=200")
-      const data = await res.json()
-      if (data.ok) setLog(data.lines || [])
-    } catch {}
-  }
-
-  useEffect(() => {
-    fetchStatus()
-  }, [])
-
-  useEffect(() => {
-    if (running) {
-      setShowLog(true)
-      fetchLog()
-      pollRef.current = setInterval(async () => {
-        await fetchStatus()
-        await fetchLog()
-      }, 2000)
-    } else {
-      if (pollRef.current) {
-        clearInterval(pollRef.current)
-        pollRef.current = null
-      }
-      if (showLog) fetchLog()
-    }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-    }
-  }, [running])
-
-  useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight
-    }
-  }, [log])
-
-  const startUpdate = async () => {
-    try {
-      const res = await apiFetch("/api/github-update/run", { method: "POST" })
-      const data = await res.json()
-      if (data.started) {
-        setRunning(true)
-        setShowLog(true)
-        setLog([])
-      }
-    } catch {}
-  }
-
-  const lastSuccess = updateStatus && !updateStatus.running && updateStatus.last_exit_code === 0 && updateStatus.last_finished_at
-  const lastFail = updateStatus && !updateStatus.running && updateStatus.last_exit_code != null && updateStatus.last_exit_code !== 0 && updateStatus.last_finished_at
-
-  return (
-    <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] flex items-center justify-center text-[var(--accent)]">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 1 0 .49-3.51" />
-            </svg>
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-primary">Обновление панели</div>
-            <div className="text-xs text-muted mt-0.5">Загрузка и установка с GitHub</div>
-          </div>
-        </div>
-        {running ? (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#3b82f6_12%,transparent)] text-blue-400 shrink-0 animate-pulse">Выполняется...</span>
-        ) : lastSuccess ? (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#22c55e_12%,transparent)] text-emerald-400 shrink-0">Успешно</span>
-        ) : lastFail ? (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#ef4444_12%,transparent)] text-rose-400 shrink-0">Ошибка</span>
-        ) : null}
-      </div>
-
-      <div className="text-xs text-muted bg-overlay-xs rounded-xl px-3 py-2.5 leading-relaxed">
-        Обновление загружает последнюю версию с GitHub, создаёт резервную копию данных и перезапускает контейнер.
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={startUpdate}
-          disabled={running}
-          className="flex-1 py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: "color-mix(in srgb, #22c55e 14%, transparent)",
-            color: "#22c55e",
-            border: "1px solid color-mix(in srgb, #22c55e 30%, transparent)",
-          }}
-        >
-          {running ? "Обновляется..." : "Обновить сейчас"}
-        </button>
-        {(log.length > 0 || showLog) && (
-          <button
-            onClick={() => setShowLog(v => !v)}
-            className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
-            style={{
-              background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-              color: "var(--accent)",
-              border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
-            }}
-          >
-            {showLog ? "Скрыть лог" : "Показать лог"}
-          </button>
-        )}
-      </div>
-
-      {showLog && (
-        <div
-          ref={logRef}
-          className="rounded-xl bg-[#0d0d0d] border border-subtle p-3 font-mono text-[11px] text-emerald-400 leading-relaxed overflow-y-auto"
-          style={{ maxHeight: 260 }}
-        >
-          {log.length === 0 ? (
-            <span className="text-muted">Ожидание вывода...</span>
-          ) : (
-            log.map((line, i) => <div key={i}>{line}</div>)
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 const PanelIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M3 9h18" />
-    <path d="M9 21V9" />
+    <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" />
   </svg>
 )
 
 const BotApiIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="11" width="18" height="10" rx="2" />
-    <circle cx="12" cy="5" r="2" />
-    <path d="M12 7v4" />
-    <line x1="8" y1="16" x2="8" y2="16" />
-    <line x1="16" y1="16" x2="16" y2="16" />
+    <circle cx="12" cy="5" r="2" /><path d="M12 7v4" />
+    <line x1="8" y1="16" x2="8" y2="16" /><line x1="16" y1="16" x2="16" y2="16" />
   </svg>
 )
 
@@ -299,7 +371,7 @@ export default function Updates() {
       setPanelInfo(data)
       setPanelStatus(data.error ? "error" : "done")
     } catch {
-      setPanelInfo({ current_version: "—", latest_version: null, update_available: false, error: "Ошибка соединения с сервером" })
+      setPanelInfo({ current_version: "—", latest_version: null, update_available: false, error: "Ошибка соединения" })
       setPanelStatus("error")
     }
   }
@@ -312,7 +384,7 @@ export default function Updates() {
       setBotApiInfo(data)
       setBotApiStatus(data.error ? "error" : "done")
     } catch {
-      setBotApiInfo({ current_version: "—", latest_version: null, update_available: false, error: "Ошибка соединения с сервером" })
+      setBotApiInfo({ current_version: "—", latest_version: null, update_available: false, error: "Ошибка соединения" })
       setBotApiStatus("error")
     }
   }
@@ -332,25 +404,16 @@ export default function Updates() {
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <VersionCard
-            title="Панель управления"
-            subtitle="Adminpanel + ЛК"
-            icon={<PanelIcon />}
-            info={panelInfo}
-            status={panelStatus}
-            onCheck={checkPanel}
+            title="Панель управления" subtitle="Adminpanel + ЛК"
+            icon={<PanelIcon />} info={panelInfo} status={panelStatus} onCheck={checkPanel}
             updateUrl="https://github.com/Spakieone/AdminPanel/releases/latest"
           />
           <VersionCard
-            title="API модуль бота"
-            subtitle="Модуль интеграции"
-            icon={<BotApiIcon />}
-            info={botApiInfo}
-            status={botApiStatus}
-            onCheck={checkBotApi}
+            title="API модуль бота" subtitle="Модуль интеграции"
+            icon={<BotApiIcon />} info={botApiInfo} status={botApiStatus} onCheck={checkBotApi}
             updateUrl="https://pocomacho.ru/solonetbot/modules/AdminPanel"
           />
         </div>
-
         <UpdatePanel />
       </div>
     </div>
