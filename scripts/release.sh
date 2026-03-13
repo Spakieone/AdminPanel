@@ -184,7 +184,11 @@ if [[ ! -d "$DIR/.git" ]]; then
 fi
 
 # Remote
-REMOTE_URL="https://github.com/${REPO}.git"
+GH_TOKEN="$(gh auth token 2>/dev/null || echo '')"
+if [[ -z "$GH_TOKEN" ]]; then
+  err "Нет токена GitHub. Выполни: gh auth login"
+fi
+REMOTE_URL="https://${GH_TOKEN}@github.com/${REPO}.git"
 if git -C "$DIR" remote get-url origin 2>/dev/null | grep -q "."; then
   git -C "$DIR" remote set-url origin "$REMOTE_URL"
 else
