@@ -161,6 +161,13 @@ class GitHubUpdateManager:
         data["running"] = bool(self._running)
         data["running_for_sec"] = running_for
         data["docker_mode"] = _IS_DOCKER
+        # Expose last_exit_code for frontend
+        if "last_exit_code" not in data:
+            status = data.get("status", "")
+            if status == "success":
+                data["last_exit_code"] = 0
+            elif status == "failed":
+                data["last_exit_code"] = 1
         return data
 
     def read_log_tail(self, max_lines: int = 200) -> List[str]:
@@ -331,55 +338,51 @@ class GitHubUpdateManager:
     # Docker update flow
     # ===========================
     def _run_update_docker(self, *, triggered_by: str) -> None:
-        """Update flow for Docker: pull new image from GHCR and recreate container."""
+        """Update flow: git pull on host + docker compose build + up."""
         started_at = _now()
         self._set_state({
             "status": "running", "stage": "start",
-            "message": "Docker update started",
+            "message": "Update started",
             "started_at": started_at, "finished_at": None,
             "triggered_by": triggered_by,
         })
-        self._append_log(f"Docker update started by: {triggered_by}")
+        self._append_log(f"Update started by: {triggered_by}")
 
         try:
-            owner, name = _safe_repo_owner_name(DEFAULT_REPO_URL)
-            image = f"ghcr.io/{owner.lower()}/{name.lower()}:latest"
-            self._append_log(f"Image: {image}")
+            host_dir = os.environ.get("HOST_PROJECT_DIR", "/root/adminpanel")
+            compose_file = f"{host_dir}/docker-compose.yml"
+            self._append_log(f"Project dir: {host_dir}")
 
-            # Step 1: Login to GHCR
-            self._set_state({"status": "running", "stage": "login", "message": "Logging in to GHCR", "started_at": started_at, "triggered_by": triggered_by})
-            self._docker_ghcr_login()
-            self._append_log("GHCR login completed")
+            # Step 1: git pull
+            self._set_state({"status": "running", "stage": "pull", "message": "Загрузка обновлений с GitHub", "started_at": started_at, "triggered_by": triggered_by})
+            self._append_log("Загрузка обновлений с GitHub (git pull)...")
+            self._run_cmd(["git", "-C", host_dir, "fetch", "origin"], cwd=Path("/"), timeout_sec=120)
+            self._run_cmd(["git", "-C", host_dir, "reset", "--hard", "origin/main"], cwd=Path("/"), timeout_sec=120)
+            self._append_log("Код обновлён")
 
-            # Step 2: Pull latest image
-            self._set_state({"status": "running", "stage": "pull", "message": f"Pulling {image}", "started_at": started_at, "triggered_by": triggered_by})
-            self._run_cmd(["docker", "pull", image], cwd=Path("/"), timeout_sec=600)
-            self._append_log("Image pulled successfully")
+            # Step 2: docker compose build
+            self._set_state({"status": "running", "stage": "build", "message": "Сборка Docker образа", "started_at": started_at, "triggered_by": triggered_by})
+            self._append_log("Сборка Docker образа (это займёт несколько минут)...")
+            self._run_cmd(["docker", "compose", "-f", compose_file, "build"], cwd=Path(host_dir), timeout_sec=1800)
+            self._append_log("Образ собран")
 
-            # Step 3: Find compose file on host
-            compose_file = self._find_compose_file()
-            self._append_log(f"Compose file: {compose_file}")
-
-            # Step 4: Recreate container with new image
-            self._set_state({"status": "running", "stage": "recreate", "message": "Recreating container with new image", "started_at": started_at, "triggered_by": triggered_by})
-
-            # Write state before restart (container will be replaced)
+            # Step 3: schedule restart (fire-and-forget so response can be sent)
             self._set_state({
                 "status": "success", "stage": "done",
-                "message": "Update completed. Container restart in progress...",
+                "message": "Обновление завершено. Перезапуск контейнера...",
                 "started_at": started_at, "finished_at": _now(),
                 "triggered_by": triggered_by,
+                "last_exit_code": 0,
             })
-            self._append_log("Scheduling container recreate...")
+            self._append_log("Перезапуск контейнера...")
 
-            # Fire-and-forget: stop current + start new container
             subprocess.Popen(  # nosec
-                ["bash", "-c", f"sleep 2 && docker compose -f {compose_file} up -d --force-recreate --no-build"],
+                ["bash", "-c", f"sleep 2 && docker compose -f {compose_file} up -d --force-recreate"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
-            self._append_log("Container recreate scheduled. Service will restart momentarily.")
+            self._append_log("Контейнер перезапускается. Панель будет доступна через ~30 секунд.")
 
         except Exception as e:
             self._append_log(f"ERROR: {e}")
@@ -388,6 +391,7 @@ class GitHubUpdateManager:
                 "message": str(e),
                 "started_at": started_at, "finished_at": _now(),
                 "triggered_by": triggered_by,
+                "last_exit_code": 1,
             })
         finally:
             with self._lock:

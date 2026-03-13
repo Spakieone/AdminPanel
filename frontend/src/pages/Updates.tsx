@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { apiFetch } from "../api/client"
+import { apiFetch, getAuthHeaders } from "../api/client"
 
 type VersionInfo = {
   current_version: string
@@ -144,7 +144,8 @@ function UpdatePanel() {
     setLog([])
     setProgress(5)
     try {
-      const res = await apiFetch("/api/github-update/run", { method: "POST" })
+      const headers = await getAuthHeaders()
+      const res = await apiFetch("/api/github-update/run", { method: "POST", headers })
       const data = await res.json()
       if (data.started) {
         setRunning(true)
