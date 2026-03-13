@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+httpx
+bcrypt
+remnawave-api
+python-multipart
+PyJWT>=2.8.0
+pyotp>=2.9.0
+
+

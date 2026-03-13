@@ -1,0 +1,20 @@
+services:
+  adminpanel:
+    image: ghcr.io/spakieone/adminpanel:latest
+    container_name: adminpanel
+    restart: unless-stopped
+    environment:
+      - ADMINPANEL_DATA_DIR=/data
+      - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-/root/adminpanel}
+      # - ADMINPANEL_ROOT_MODE=lk
+      # - ADMINPANEL_LK_HOSTS=lk.example.com
+    volumes:
+      - ./data:/data
+      # Docker socket for self-update from panel UI
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Mount project dir so container can find compose file for recreate
+      - .:/host-project:ro
+    ports:
+      - "127.0.0.1:8888:8888"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

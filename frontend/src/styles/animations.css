@@ -1,0 +1,131 @@
+/* Pluggo-style animations */
+
+/* Appearance animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+/* Pluggo-specific animations */
+@keyframes cardGlow {
+  0% { box-shadow: 0 0 0 rgb(var(--accent-rgb) / 0); }
+  50% { box-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.08); }
+  100% { box-shadow: 0 0 0 rgb(var(--accent-rgb) / 0); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0.2); }
+  50% { box-shadow: 0 0 0 8px rgb(var(--accent-rgb) / 0); }
+}
+
+/* Modal animations */
+.modal-backdrop {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+.modal-content {
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Tab content */
+.tab-content-enter {
+  animation: fadeInUp 0.35s ease-out forwards;
+  opacity: 0;
+}
+
+/* Page enter */
+.page-enter {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* List items */
+.list-item-enter {
+  animation: fadeInUp 0.25s ease-out forwards;
+}
+
+/* Panels */
+.panel-enter {
+  animation: slideInRight 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.panel-exit {
+  animation: slideInLeft 0.3s ease-in forwards;
+}
+
+/* Table rows */
+.table-row-enter {
+  animation: fadeInUp 0.3s ease-out forwards;
+  opacity: 0;
+}
+
+/* Smooth transitions */
+.transition-smooth {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+}
+.transition-fast {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Skeleton loading — Pluggo dark */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.02) 0%,
+    rgba(255,255,255,0.05) 50%,
+    rgba(255,255,255,0.02) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Smooth scroll */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Large list optimization */
+.virtual-list-item {
+  contain: layout style paint;
+}

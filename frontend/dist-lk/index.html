@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./webpanel-icon.svg" />
+    <link rel="shortcut icon" href="./webpanel-icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Apply theme + title before React renders (prevents flash)
+      (function() {
+        try {
+          const cached = localStorage.getItem('admin_panel_ui_settings_v1');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && typeof parsed.browserTitle === 'string') {
+              document.title = parsed.browserTitle;
+            }
+          }
+        } catch (e) {}
+        try {
+          const lkTitle = localStorage.getItem('lk_brand_title');
+          if (lkTitle) document.title = lkTitle;
+        } catch (e) {}
+        try {
+          const accent = localStorage.getItem('panel_accent_color');
+          if (accent) document.documentElement.setAttribute('data-accent', accent);
+        } catch (e) {}
+        try {
+          const theme = localStorage.getItem('theme');
+          if (theme === 'light') {
+            document.documentElement.classList.remove('dark');
+            document.body.classList.remove('dark');
+          } else {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        overflow-x: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      html::-webkit-scrollbar {
+        display: none;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', sans-serif;
+        background: var(--bg-base, #0a0a0a);
+        color: var(--text-primary, rgba(255,255,255,0.9));
+        overflow-x: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      body::-webkit-scrollbar {
+        display: none;
+      }
+      #root {
+        background: transparent;
+        padding: 0;
+        overflow-x: hidden;
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-DcDSHeyv.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/react-vendor-CgeT7Z0k.js">
+    <link rel="modulepreload" crossorigin href="/assets/chart-vendor-CkoAX-yw.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-rU4gJvXy.css">
+  </head>
+  <body class="dark">
+    <div id="root"></div>
+  </body>
+</html>
