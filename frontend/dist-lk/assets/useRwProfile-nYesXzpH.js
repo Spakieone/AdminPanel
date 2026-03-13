@@ -1,1 +1,0 @@
-import{r as o}from"./react-vendor-CgeT7Z0k.js";import{a as f}from"./index-DcDSHeyv.js";let e;function c(){const[i,t]=o.useState(null),[s,l]=o.useState(!0);return o.useEffect(()=>{if(e!==void 0){t(e),l(!1);return}f().then(a=>{const r=a.activeProfileId||null;e=r,t(r)}).catch(()=>{e=null,t(null)}).finally(()=>l(!1))},[]),{profileId:i,loading:s}}export{c as u};

@@ -187,7 +187,17 @@ for i in $(seq 1 15); do
   fi
 done
 
-# ── 8. Итог ──────────────────────────────────────────────
+# ── 8. Получаем credentials из логов ─────────────────────
+INIT_PASSWORD=""
+for i in $(seq 1 10); do
+  INIT_PASSWORD="$(docker logs adminpanel 2>&1 | grep -oP 'Password: \K\S+')" || true
+  if [[ -n "$INIT_PASSWORD" ]]; then
+    break
+  fi
+  sleep 1
+done
+
+# ── 9. Итог ───────────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${G}  AdminPanel $VERSION успешно установлен!${N}"
@@ -195,9 +205,16 @@ echo ""
 echo "  Директория: $INSTALL_DIR"
 echo "  Порт:       8888 (только localhost)"
 echo ""
+if [[ -n "$INIT_PASSWORD" ]]; then
+  echo -e "  ${Y}Данные для первого входа:${N}"
+  echo "  Логин:    admin"
+  echo -e "  Пароль:   ${G}${INIT_PASSWORD}${N}"
+  echo -e "  ${R}Смени пароль после первого входа!${N}"
+  echo ""
+fi
 echo "  Следующие шаги:"
 echo "  1. Настрой Caddy/Nginx для проксирования на порт 8888"
-echo "  2. Открой панель и создай первого пользователя"
+echo "  2. Войди в панель и смени пароль"
 echo ""
 echo "  Полезные команды:"
 echo "  • Логи:    docker logs -f adminpanel"
