@@ -135,36 +135,37 @@ function buildSubProgress(log: string[], startedAt?: number): number | null {
     })
     if (filtered.length > 0) lines = filtered
   }
-  // Scan last 60 lines of current run
+  // Use full filtered log for marker scanning (npm build output can be 100+ lines long)
+  const fullText = lines.join("\n")
+  const fullTl = fullText.toLowerCase()
+
+  // Guard: only return build sub-progress if docker build has actually started
+  const buildStarted = fullTl.includes("sending build context") || fullTl.includes("image adminpanel")
+    || /step \d+\/\d+/i.test(fullText) || fullTl.includes("> frontend@")
+  if (!buildStarted) return null
+
+  // Scan last 60 lines for recent stage markers (step 7+, successfully built, etc.)
   const recent = lines.slice(-60)
   const text = recent.join("\n")
   const tl = text.toLowerCase()
-
-  // Guard: only return build sub-progress if docker build has actually started
-  // Check recent window AND full filtered log (early markers scroll out of last-60 window)
-  const fullText = lines.join("\n").toLowerCase()
-  const buildStarted = tl.includes("sending build context") || /step \d+\/\d+/.test(tl)
-    || tl.includes("image adminpanel") || tl.includes("> frontend@") || tl.includes("using cache")
-    || fullText.includes("sending build context") || fullText.includes("image adminpanel")
-  if (!buildStarted) return null
 
   // Use precise markers — order matters, most advanced stage first
   if (tl.includes("перезапуск контейнера") || tl.includes("контейнер перезапускается")) return 98
   if (tl.includes("successfully built") || tl.includes("successfully tagged") || tl.includes("образ собран")) return 95
   if (tl.includes("step 14/") || tl.includes("step 15/") || tl.includes("step 16/")) return 92
   if (tl.includes("step 7/") || tl.includes("step 8/") || tl.includes("step 9/") || tl.includes("step 10/") || tl.includes("step 11/") || tl.includes("step 12/") || tl.includes("step 13/")) return 87
-  // LK build finished: dist-lk/index.html line in output
-  if (tl.includes("dist-lk/index.html")) return 83
-  // LK build started: "> frontend@" followed by "build:lk" as npm script output (not Step line)
-  if (text.includes("> frontend@0.0.0 build:lk")) return 80
-  // adminpanel build finished: dist/index.html in output (not dist-lk)
-  if (text.match(/dist\/index\.html\s+\d/) && !tl.includes("dist-lk/index.html")) return 77
-  // adminpanel build started: "> frontend@" build script output
-  if (text.includes("> frontend@0.0.0 build")) return 74
-  // Step 6 = RUN npm run build (compilation starting)
-  if (tl.includes("step 6/")) return 72
+
+  // LK build markers — check full log (output is long, scrolls past last-60 window)
+  if (fullTl.includes("dist-lk/index.html")) return 83
+  if (fullText.includes("> frontend@0.0.0 build:lk")) return 80
+  // adminpanel build finished: dist/index.html in full log
+  if (fullText.match(/dist\/index\.html\s+\d/) && !fullTl.includes("dist-lk/index.html")) return 77
+  // adminpanel build started: "> frontend@0.0.0 build" in full log
+  if (fullText.includes("> frontend@0.0.0 build")) return 74
+  // Step 6 = RUN npm run build
+  if (fullTl.includes("step 6/")) return 72
   // Step 1-5 = Docker layers
-  if (tl.includes("step 5/") || tl.includes("step 4/") || tl.includes("step 3/") || tl.includes("step 2/") || tl.includes("step 1/")) return 71
+  if (fullTl.includes("step 5/") || fullTl.includes("step 4/") || fullTl.includes("step 3/") || fullTl.includes("step 2/") || fullTl.includes("step 1/")) return 71
 
   return null
 }
