@@ -259,7 +259,14 @@ function UpdatePanel() {
 
       {/* Progress bar */}
       {showProgress && (
-        <SegmentedProgress pct={lastSuccess ? 100 : progress} />
+        <>
+          <SegmentedProgress pct={lastSuccess ? 100 : progress} />
+          {(progress >= 100 || lastSuccess) && !restarting && (
+            <div className="text-xs text-amber-400 bg-[color-mix(in_srgb,#f59e0b_8%,transparent)] rounded-lg px-3 py-2 text-center animate-pulse">
+              Контейнер перезапускается. Панель будет доступна через ~30 секунд.
+            </div>
+          )}
+        </>
       )}
 
       {/* Error */}
