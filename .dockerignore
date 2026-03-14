@@ -13,6 +13,8 @@ frontend/dist-lk/
 
 # local data (mounted as /data in docker)
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 *.db
 uploads/
 telegram_sessions/
