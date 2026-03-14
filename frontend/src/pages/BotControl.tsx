@@ -525,21 +525,47 @@ export default function BotControl() {
           >
             <div style={{ padding: "10px 0" }}>
               {logs.length > 0 ? logs.map((line, i) => {
-                const tlo = line.toLowerCase()
-                const isError = tlo.includes("error") || tlo.includes("critical") || tlo.includes("traceback")
-                const isWarn = !isError && (tlo.includes("warn") || tlo.includes("warning"))
-                const isInfo = !isError && !isWarn && tlo.includes("info")
-                const color = isError ? "#f87171" : isWarn ? "#fbbf24" : isInfo ? "#6ee7b7" : "#94a3b8"
+                // Parse journalctl format: "Mar 14 10:01:10 HOST python[PID]: LEVEL: message"
+                const m = line.match(/^(\w{3}\s+\d+\s+[\d:]+)\s+(\S+)\s+(\S+):\s*(WARNING|ERROR|CRITICAL|INFO|DEBUG)?:?\s*(.*)$/)
+                const isError = /error|critical|traceback/i.test(line)
+                const isWarn = !isError && /warning|warn/i.test(line)
+                const levelColor = isError ? "#f87171" : isWarn ? "#fbbf24" : "#4ade80"
+                const bgColor = isError ? "rgba(239,68,68,0.07)" : isWarn ? "rgba(251,191,36,0.04)" : "transparent"
+
+                if (!m) {
+                  // Unparsed line (e.g. traceback continuation)
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "baseline", background: bgColor }}>
+                      <span style={{ color: "#3a3a3a", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
+                        {String(i + 1).padStart(4, " ")}
+                      </span>
+                      <span style={{ color: isError ? "#f87171" : "#566577", fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>
+                        {line}
+                      </span>
+                    </div>
+                  )
+                }
+
+                const [, ts, host, proc, level, msg] = m
                 return (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "baseline",
-                    background: isError ? "rgba(239,68,68,0.07)" : isWarn ? "rgba(251,191,36,0.04)" : "transparent",
-                  }}>
+                  <div key={i} style={{ display: "flex", alignItems: "baseline", background: bgColor, gap: 0 }}>
+                    {/* Line number */}
                     <span style={{ color: "#3a3a3a", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
                       {String(i + 1).padStart(4, " ")}
                     </span>
-                    <span style={{ color, fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>
-                      {line}
+                    {/* Timestamp */}
+                    <span style={{ color: "#4a5568", fontSize: 11, flexShrink: 0, minWidth: 72, paddingRight: 8 }}>{ts}</span>
+                    {/* Host */}
+                    <span style={{ color: "#374151", fontSize: 11, flexShrink: 0, paddingRight: 8, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{host}</span>
+                    {/* Process */}
+                    <span style={{ color: "#4b5563", fontSize: 11, flexShrink: 0, paddingRight: 8, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proc}</span>
+                    {/* Level badge */}
+                    <span style={{ color: levelColor, fontSize: 11, flexShrink: 0, minWidth: 52, paddingRight: 8, fontWeight: 600 }}>
+                      {level || "—"}
+                    </span>
+                    {/* Message */}
+                    <span style={{ color: isError ? "#f87171" : isWarn ? "#fbbf24" : "#cbd5e1", fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>
+                      {msg}
                     </span>
                   </div>
                 )
