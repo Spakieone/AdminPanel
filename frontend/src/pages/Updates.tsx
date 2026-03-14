@@ -124,14 +124,22 @@ function SegmentedProgress({ pct }: { pct: number }) {
 
 // Detect build sub-stage from log lines to get finer progress during docker compose build
 function buildSubProgress(log: string[], startedAt?: number): number | null {
-  // Filter to only lines from the current run
-  let lines = log
-  if (startedAt) {
+  // Find the last "Update started by" line — everything after it is the current run
+  let startIdx = 0
+  for (let i = log.length - 1; i >= 0; i--) {
+    if (log[i].toLowerCase().includes("update started by")) {
+      startIdx = i
+      break
+    }
+  }
+  // Fallback: filter by timestamp if startedAt is known
+  let lines = log.slice(startIdx)
+  if (startedAt && lines.length < 5) {
     const startMs = startedAt * 1000
     const filtered = log.filter(line => {
       const m = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/)
       if (!m) return false
-      return new Date(m[1].replace(" ", "T") + "Z").getTime() >= startMs - 5000
+      return new Date(m[1].replace(" ", "T") + "Z").getTime() >= startMs - 2000
     })
     if (filtered.length > 0) lines = filtered
   }
