@@ -160,8 +160,13 @@ function buildSubProgress(log: string[], startedAt?: number): number | null {
   if (fullText.includes("> frontend@0.0.0 build:lk")) return 80
   // adminpanel build finished: dist/index.html in full log
   if (fullText.match(/dist\/index\.html\s+\d/) && !fullTl.includes("dist-lk/index.html")) return 77
-  // adminpanel build started: "> frontend@0.0.0 build" in full log
-  if (fullText.includes("> frontend@0.0.0 build")) return 74
+  // adminpanel build in progress: count dist/assets/ lines to estimate progress 74→76
+  if (fullText.includes("> frontend@0.0.0 build")) {
+    const assetCount = (fullText.match(/dist\/assets\//g) || []).length
+    if (assetCount >= 30) return 76
+    if (assetCount >= 10) return 75
+    return 74
+  }
   // Step 6 = RUN npm run build
   if (fullTl.includes("step 6/")) return 72
   // Step 1-5 = Docker layers
@@ -216,7 +221,7 @@ function UpdatePanel() {
 
   const fetchLog = async () => {
     try {
-      const res = await apiFetch("/api/github-update/log?lines=300")
+      const res = await apiFetch("/api/github-update/log?lines=600")
       const data = await res.json()
       if (data.ok) {
         const lines: string[] = data.lines || []
