@@ -212,14 +212,17 @@ function UpdatePanel() {
       if (data.ok) {
         const lines: string[] = data.lines || []
         setLog(lines)
-        // Refine build progress using log sub-stages (active during build stage)
-        setProgress(p => {
-          if (p >= 70 && p < 100) {
-            const sub = buildSubProgress(lines, startedAtRef.current)
-            if (sub !== null) return Math.max(p, sub)
-          }
-          return p
-        })
+        // Refine build progress using log sub-stages
+        // Only activates AFTER backend confirmed stage=build (p>=70) AND startedAt is known
+        if (startedAtRef.current) {
+          setProgress(p => {
+            if (p >= 70 && p < 100) {
+              const sub = buildSubProgress(lines, startedAtRef.current)
+              if (sub !== null && sub > p) return sub
+            }
+            return p
+          })
+        }
       }
     } catch {}
   }
@@ -232,7 +235,8 @@ function UpdatePanel() {
     if (running || restarting) {
       setShowLog(true)
       setProgress(p => p < 5 ? 5 : p)
-      if (running) fetchLog()
+      // fetchStatus first so startedAtRef is populated before fetchLog uses it
+      if (running) fetchStatus().then(() => fetchLog())
       pollRef.current = setInterval(async () => {
         await fetchStatus()
         if (running) await fetchLog()
