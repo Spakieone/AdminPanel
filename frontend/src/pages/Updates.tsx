@@ -123,9 +123,20 @@ function SegmentedProgress({ pct }: { pct: number }) {
 }
 
 // Detect build sub-stage from log lines to get finer progress during docker compose build
-function buildSubProgress(log: string[]): number | null {
-  // Scan last 60 lines for build signals (in order of increasing progress)
-  const recent = log.slice(-60)
+function buildSubProgress(log: string[], startedAt?: number): number | null {
+  // Filter to only lines from the current run
+  let lines = log
+  if (startedAt) {
+    const startMs = startedAt * 1000
+    const filtered = log.filter(line => {
+      const m = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/)
+      if (!m) return false
+      return new Date(m[1].replace(" ", "T")).getTime() >= startMs - 5000
+    })
+    if (filtered.length > 0) lines = filtered
+  }
+  // Scan last 60 lines of current run
+  const recent = lines.slice(-60)
   const text = recent.join("\n")
   const tl = text.toLowerCase()
 
@@ -153,6 +164,7 @@ function UpdatePanel() {
   const [progress, setProgress] = useState(0)
   const [donePhase, setDonePhase] = useState(false) // true after stage=done, before container restarts
   const sessionStartedRef = useRef(false) // true only if update was started in this browser session
+  const startedAtRef = useRef<number | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const [restarting, setRestarting] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -169,6 +181,7 @@ function UpdatePanel() {
         setUpdateStatus(data.status)
         const isRunning = !!data.status?.running
         setRunning(isRunning)
+        if (data.status?.last_started_at) startedAtRef.current = data.status.last_started_at
         const stage = data.status?.stage as string | undefined
         if (isRunning && stage && stage in STAGE_PROGRESS) {
           setProgress(p => Math.max(p, STAGE_PROGRESS[stage]))
@@ -197,7 +210,7 @@ function UpdatePanel() {
         // Refine build progress using log sub-stages (active during build stage)
         setProgress(p => {
           if (p >= 70 && p < 100) {
-            const sub = buildSubProgress(lines)
+            const sub = buildSubProgress(lines, startedAtRef.current)
             if (sub !== null) return Math.max(p, sub)
           }
           return p
