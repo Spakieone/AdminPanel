@@ -80,20 +80,31 @@ function UpdatePanel() {
   const [showLog, setShowLog] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [restarting, setRestarting] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const failCountRef = useRef(0)
 
   const fetchStatus = async () => {
     try {
       const res = await apiFetch("/api/github-update/status")
       const data = await res.json()
       if (data.ok) {
+        failCountRef.current = 0
+        setRestarting(false)
         setUpdateStatus(data.status)
         const isRunning = !!data.status?.running
         setRunning(isRunning)
         if (!isRunning && data.status?.last_exit_code === 0) setProgress(100)
       }
-    } catch {}
+    } catch {
+      failCountRef.current += 1
+      if (failCountRef.current >= 2) {
+        // Контейнер перезапускается
+        setRestarting(true)
+        setProgress(95)
+      }
+    }
   }
 
   const fetchLog = async () => {
@@ -113,13 +124,13 @@ function UpdatePanel() {
   }, [])
 
   useEffect(() => {
-    if (running) {
+    if (running || restarting) {
       setShowLog(true)
       setProgress(p => p < 5 ? 5 : p)
-      fetchLog()
+      if (running) fetchLog()
       pollRef.current = setInterval(async () => {
         await fetchStatus()
-        await fetchLog()
+        if (running) await fetchLog()
       }, 2000)
     } else {
       if (pollRef.current) {
@@ -131,7 +142,7 @@ function UpdatePanel() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [running])
+  }, [running, restarting])
 
   useEffect(() => {
     if (logRef.current) {
@@ -180,7 +191,9 @@ function UpdatePanel() {
             <div className="text-xs text-muted mt-0.5">Загрузка и установка с GitHub</div>
           </div>
         </div>
-        {running ? (
+        {restarting ? (
+          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#f59e0b_12%,transparent)] text-amber-400 shrink-0 animate-pulse">Перезапуск...</span>
+        ) : running ? (
           <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#3b82f6_12%,transparent)] text-blue-400 shrink-0 animate-pulse">Выполняется...</span>
         ) : lastSuccess ? (
           <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#22c55e_12%,transparent)] text-emerald-400 shrink-0">Успешно</span>
