@@ -244,9 +244,9 @@ function ProfileForm({ profile, botProfiles, allProfiles, onSaved, onDeleted }: 
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted/50 hover:text-muted transition-colors"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
                 </span>
                 {hintPos && (
-                  <div className="pointer-events-none" style={{ position: 'fixed', left: Math.max(8, Math.min(hintPos.x - 192, window.innerWidth - 392)), top: hintPos.y + 8, zIndex: 200000, width: 384 }}>
-                    <img src="/webpanel/hints/codemail.png" alt="Пример письма" className="w-full rounded-lg shadow-2xl border border-white/10" />
-                    <div className="mt-1.5 px-2 py-1 text-xs text-white/80 text-center bg-[#111] rounded-md border border-white/10">Отображается в шапке письма и заголовке вкладки браузера</div>
+                  <div className="pointer-events-none" style={{ position: 'fixed', left: Math.max(8, Math.min(hintPos.x - 192, window.innerWidth - 392)), top: hintPos.y + 8, zIndex: 200000, width: 384, background: '#111', borderRadius: 10, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <img src="/webpanel/hints/codemail.png" alt="Пример письма" className="w-full block" />
+                    <div className="px-2 py-1.5 text-xs text-white/70 text-center">Отображается в шапке письма и заголовке вкладки браузера</div>
                   </div>
                 )}
               </div>
