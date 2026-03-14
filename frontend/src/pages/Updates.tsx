@@ -42,7 +42,7 @@ const SEGMENTS = [
   { label: "Старт",    pct: 5,   color: "#818cf8" },
   { label: "Git pull", pct: 40,  color: "#34d399" },
   { label: "Сборка",  pct: 70,  color: "#60a5fa" },
-  { label: "Запуск",  pct: 95,  color: "#f43f5e" },
+  { label: "Запуск",  pct: 98,  color: "#f43f5e" },
   { label: "Готово",  pct: 100, color: "#4ade80" },
 ]
 
