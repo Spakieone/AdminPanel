@@ -266,7 +266,7 @@ function UpdatePanel() {
 
               // Classify
               const isError = tlo.includes("error") || tlo.includes("ошибк") || tlo.includes("failed") || tlo.includes("fatal")
-              const isWarn = !isError && (tlo.includes("warn") || tlo.includes("deprecated"))
+              const isWarn = !isError && (tlo.includes("warn") || tlo.includes("deprecated") || tlo.includes("level=warning"))
               const isSuccess = !isError && (
                 /[✓✔]/.test(text) || tlo.includes("успешн") || tlo.includes("обновлён") ||
                 tlo.includes("образ собран") || tlo.includes("код обновлён") ||
@@ -282,6 +282,7 @@ function UpdatePanel() {
                 tlo.includes("project dir")
               )
               const isNpmAsset = /dist[/-]/.test(text) && /\d+\.\d+ k[bB]/.test(text)
+              const isSendingContext = tlo.includes("sending build context")
               const isGitHash = /^[a-f0-9]{7,40}$/.test(text.trim()) || text.startsWith("HEAD is now at")
               const isEmpty = text.trim() === ""
 
@@ -293,12 +294,27 @@ function UpdatePanel() {
                 : isSection ? "#c084fc"
                 : isStep ? "#60a5fa"
                 : isCmd ? "#cbd5e1"
-                : isArrow ? "#475569"
-                : isNpmAsset ? "#374151"
+                : isArrow ? "#4b5563"
+                : isNpmAsset || isSendingContext ? "#4b5563"
                 : isGitHash ? "#94a3b8"
                 : "#6ee7b7"
 
               const lineNum = String(i + 1).padStart(4, " ")
+
+              // Highlight sizes in sending context lines and npm asset lines
+              const renderText = () => {
+                const raw = isCmd ? text.trimStart().replace(/^\$\s*/, "") : text
+                if (isSendingContext || isNpmAsset) {
+                  // Highlight numbers with units
+                  const parts = raw.split(/(\d+(?:\.\d+)?\s*(?:MB|KB|kB|B|kb|mb)\b)/)
+                  return parts.map((p, j) =>
+                    /\d/.test(p) && /MB|KB|kB|B|kb|mb/.test(p)
+                      ? <span key={j} style={{ color: "#94a3b8" }}>{p}</span>
+                      : <span key={j}>{p}</span>
+                  )
+                }
+                return raw
+              }
 
               return (
                 <div
@@ -307,23 +323,22 @@ function UpdatePanel() {
                     display: "flex",
                     alignItems: "baseline",
                     gap: 0,
-                    padding: "0 0",
-                    opacity: isNpmAsset ? 0.45 : isArrow ? 0.55 : 1,
-                    background: isError ? "rgba(239,68,68,0.06)" : isSuccess && !isNpmAsset ? "rgba(74,222,128,0.03)" : "transparent",
+                    opacity: isNpmAsset || isSendingContext ? 0.5 : isArrow ? 0.6 : 1,
+                    background: isError ? "rgba(239,68,68,0.07)" : isWarn ? "rgba(251,191,36,0.04)" : isSuccess && !isNpmAsset ? "rgba(74,222,128,0.03)" : "transparent",
                   }}
                 >
                   {/* Line number */}
-                  <span style={{ color: "#3d3d3d", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
+                  <span style={{ color: "#3a3a3a", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
                     {lineNum}
                   </span>
                   {/* Timestamp */}
-                  <span style={{ color: "#556", fontSize: 11, flexShrink: 0, minWidth: 62, paddingRight: 10 }}>
+                  <span style={{ color: "#4a5568", fontSize: 11, flexShrink: 0, minWidth: 62, paddingRight: 10 }}>
                     {ts}
                   </span>
                   {/* Content */}
                   <span style={{ color: textColor, fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>
                     {isCmd && <span style={{ color: "#4b5563" }}>$ </span>}
-                    {isCmd ? text.trimStart().replace(/^\$\s*/, "") : text}
+                    {renderText()}
                   </span>
                 </div>
               )
