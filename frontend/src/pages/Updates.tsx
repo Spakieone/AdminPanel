@@ -41,9 +41,7 @@ const STAGE_PROGRESS: Record<string, number> = {
 const SEGMENTS = [
   { label: "Старт",    pct: 5,   color: "#818cf8" },
   { label: "Git pull", pct: 40,  color: "#34d399" },
-  { label: "Сборка",  pct: 71,  color: "#60a5fa" },
-  { label: "Панель",  pct: 77,  color: "#f59e0b" },
-  { label: "LK",      pct: 83,  color: "#fb923c" },
+  { label: "Сборка",  pct: 70,  color: "#60a5fa" },
   { label: "Запуск",  pct: 95,  color: "#f43f5e" },
   { label: "Готово",  pct: 100, color: "#4ade80" },
 ]
@@ -122,60 +120,37 @@ function SegmentedProgress({ pct }: { pct: number }) {
   )
 }
 
-// Detect build sub-stage from log lines to get finer progress during docker compose build
-function buildSubProgress(log: string[], startedAt?: number): number | null {
+// Progress based on log line count of current run (70–94%)
+// A typical full build produces ~250 lines; we map line count linearly into that range
+function buildSubProgress(log: string[]): number | null {
   // Find the last "Update started by" line — everything after it is the current run
-  let startIdx = 0
+  let startIdx = -1
   for (let i = log.length - 1; i >= 0; i--) {
     if (log[i].toLowerCase().includes("update started by")) {
       startIdx = i
       break
     }
   }
-  // Fallback: filter by timestamp if startedAt is known
-  let lines = log.slice(startIdx)
-  if (startedAt && lines.length < 5) {
-    const startMs = startedAt * 1000
-    const filtered = log.filter(line => {
-      const m = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/)
-      if (!m) return false
-      return new Date(m[1].replace(" ", "T") + "Z").getTime() >= startMs - 2000
-    })
-    if (filtered.length > 0) lines = filtered
-  }
-  // Use full filtered log for marker scanning (npm build output can be 100+ lines long)
-  const fullText = lines.join("\n")
-  const fullTl = fullText.toLowerCase()
+  if (startIdx < 0) return null
 
-  // Guard: only return build sub-progress if docker build has actually started
-  const buildStarted = fullTl.includes("sending build context") || fullTl.includes("image adminpanel")
-    || /step \d+\/\d+/i.test(fullText) || fullTl.includes("> frontend@")
-  if (!buildStarted) return null
+  const lines = log.slice(startIdx)
+  const text = lines.join("\n")
+  const tl = text.toLowerCase()
 
-  // All markers checked on full filtered log — order matters, most advanced first
-  if (fullTl.includes("перезапуск контейнера") || fullTl.includes("контейнер перезапускается")) return 98
-  if (fullTl.includes("successfully built") || fullTl.includes("successfully tagged") || fullTl.includes("образ собран")) return 95
-  if (fullTl.includes("step 14/") || fullTl.includes("step 15/") || fullTl.includes("step 16/")) return 92
-  if (fullTl.includes("step 7/") || fullTl.includes("step 8/") || fullTl.includes("step 9/") || fullTl.includes("step 10/") || fullTl.includes("step 11/") || fullTl.includes("step 12/") || fullTl.includes("step 13/")) return 87
+  // Not yet in docker build phase
+  if (!tl.includes("сборка docker") && !tl.includes("sending build context") && !tl.includes("image adminpanel") && !/step \d+\/\d+/i.test(text)) return null
 
-  // LK build markers — check full log (output is long, scrolls past last-60 window)
-  if (fullTl.includes("dist-lk/index.html")) return 83
-  if (fullText.includes("> frontend@0.0.0 build:lk")) return 80
-  // adminpanel build finished: dist/index.html in full log
-  if (fullText.match(/dist\/index\.html\s+\d/) && !fullTl.includes("dist-lk/index.html")) return 77
-  // adminpanel build in progress: count dist/assets/ lines to estimate progress 74→76
-  if (fullText.includes("> frontend@0.0.0 build")) {
-    const assetCount = (fullText.match(/dist\/assets\//g) || []).length
-    if (assetCount >= 30) return 76
-    if (assetCount >= 10) return 75
-    return 74
-  }
-  // Step 6 = RUN npm run build
-  if (fullTl.includes("step 6/")) return 72
-  // Step 1-5 = Docker layers
-  if (fullTl.includes("step 5/") || fullTl.includes("step 4/") || fullTl.includes("step 3/") || fullTl.includes("step 2/") || fullTl.includes("step 1/")) return 71
+  // Terminal markers (exact stages)
+  if (tl.includes("перезапуск контейнера") || tl.includes("контейнер перезапускается")) return 98
+  if (tl.includes("successfully built") || tl.includes("successfully tagged") || tl.includes("образ собран")) return 95
 
-  return null
+  // Map line count linearly: build starts ~10 lines in, full build ~250 lines
+  // Range: 70% (build start) → 94% (just before successfully built)
+  const buildStartLine = lines.findIndex(l => l.toLowerCase().includes("сборка docker") || l.toLowerCase().includes("image adminpanel"))
+  const buildLines = buildStartLine >= 0 ? lines.length - buildStartLine : lines.length
+  // ~250 lines = full build; clamp to 70–94
+  const pct = 70 + Math.min(24, Math.round((buildLines / 250) * 24))
+  return pct
 }
 
 function UpdatePanel() {
@@ -229,13 +204,10 @@ function UpdatePanel() {
       if (data.ok) {
         const lines: string[] = data.lines || []
         setLog(lines)
-        // Refine progress from log sub-stages (only moves forward, never back)
-        // startedAtRef MUST be set — without it we'd match markers from previous runs
-        if (startedAtRef.current) {
-          const sub = buildSubProgress(lines, startedAtRef.current)
-          if (sub !== null) {
-            setProgress(p => (sub > p && p < 100) ? sub : p)
-          }
+        // Refine progress from log line count (only moves forward, never back)
+        const sub = buildSubProgress(lines)
+        if (sub !== null) {
+          setProgress(p => (sub > p && p < 100) ? sub : p)
         }
       }
     } catch {}
