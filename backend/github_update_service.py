@@ -349,24 +349,26 @@ class GitHubUpdateManager:
         self._append_log(f"Update started by: {triggered_by}")
 
         try:
+            # /host-project смонтирован как rw volume в docker-compose.yml
+            container_project_dir = "/host-project"
             host_dir = os.environ.get("HOST_PROJECT_DIR", "/root/adminpanel")
             compose_file = f"{host_dir}/docker-compose.yml"
-            self._append_log(f"Project dir: {host_dir}")
+            self._append_log(f"Project dir (host): {host_dir}")
 
-            # Step 1: git pull
+            # Step 1: git pull (внутри контейнера через /host-project)
             self._set_state({"status": "running", "stage": "pull", "message": "Загрузка обновлений с GitHub", "started_at": started_at, "triggered_by": triggered_by})
             self._append_log("Загрузка обновлений с GitHub (git pull)...")
-            self._run_cmd(["git", "-C", host_dir, "fetch", "origin"], cwd=Path("/"), timeout_sec=120)
-            self._run_cmd(["git", "-C", host_dir, "reset", "--hard", "origin/main"], cwd=Path("/"), timeout_sec=120)
+            self._run_cmd(["git", "-C", container_project_dir, "fetch", "origin"], cwd=Path("/"), timeout_sec=120)
+            self._run_cmd(["git", "-C", container_project_dir, "reset", "--hard", "origin/main"], cwd=Path("/"), timeout_sec=120)
             self._append_log("Код обновлён")
 
-            # Step 2: docker compose build
+            # Step 2: docker compose build (на хосте через docker socket)
             self._set_state({"status": "running", "stage": "build", "message": "Сборка Docker образа", "started_at": started_at, "triggered_by": triggered_by})
             self._append_log("Сборка Docker образа (это займёт несколько минут)...")
-            self._run_cmd(["docker", "compose", "-f", compose_file, "build"], cwd=Path(host_dir), timeout_sec=1800)
+            self._run_cmd(["docker", "compose", "-f", compose_file, "build"], cwd=Path("/"), timeout_sec=1800)
             self._append_log("Образ собран")
 
-            # Step 3: schedule restart (fire-and-forget so response can be sent)
+            # Step 3: schedule restart (fire-and-forget)
             self._set_state({
                 "status": "success", "stage": "done",
                 "message": "Обновление завершено. Перезапуск контейнера...",
