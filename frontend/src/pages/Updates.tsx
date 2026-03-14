@@ -346,28 +346,28 @@ function VersionCard({
         </div>
       </div>
 
-      {/* Spacer — pushes bottom section down */}
+      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Bottom section — always at the same level across cards */}
-      <div className="flex flex-col gap-2">
+      {/* Main button — always at same level */}
+      <button
+        onClick={onCheck}
+        disabled={status === "loading"}
+        className="w-full py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{
+          background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+          color: "var(--accent)",
+          border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+        }}
+      >
+        {status === "loading" ? "Проверяем..." : status === "done" ? "Обновить статус" : "Проверить обновления"}
+      </button>
+
+      {/* Extra actions below — placeholder keeps height consistent */}
+      <div style={{ minHeight: 38 }} className="flex flex-col gap-2">
         {hasError && (
           <div className="text-xs text-rose-400 bg-[color-mix(in_srgb,#ef4444_8%,transparent)] rounded-lg px-3 py-2">{info.error}</div>
         )}
-
-        <button
-          onClick={onCheck}
-          disabled={status === "loading"}
-          className="w-full py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
-            color: "var(--accent)",
-            border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-          }}
-        >
-          {status === "loading" ? "Проверяем..." : status === "done" ? "Обновить статус" : "Проверить обновления"}
-        </button>
-
         {hasUpdate && updateUrl && (
           <a
             href={updateUrl} target="_blank" rel="noopener noreferrer"
