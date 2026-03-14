@@ -115,6 +115,7 @@ export default function BotControl() {
 
   useEffect(() => {
     setTab(urlTab === 'logs' ? 'logs' : 'overview')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlTab])
 
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -518,16 +519,32 @@ export default function BotControl() {
             </button>
           </div>
 
-          <div className="glass-table overflow-hidden rounded-xl border border-default">
-            <div className="bg-surface p-3 max-h-[500px] overflow-auto font-mono text-xs">
-              {logs.length > 0 ? (
-                logs.map((line, i) => (
-                  <div key={i} className="text-dim whitespace-pre-wrap py-0.5 hover:bg-overlay-xs">
-                    {line}
+          <div
+            className="rounded-xl overflow-y-auto"
+            style={{ maxHeight: 700, background: "#0c0c0c", border: "1px solid #222", fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
+          >
+            <div style={{ padding: "10px 0" }}>
+              {logs.length > 0 ? logs.map((line, i) => {
+                const tlo = line.toLowerCase()
+                const isError = tlo.includes("error") || tlo.includes("critical") || tlo.includes("traceback")
+                const isWarn = !isError && (tlo.includes("warn") || tlo.includes("warning"))
+                const isInfo = !isError && !isWarn && tlo.includes("info")
+                const color = isError ? "#f87171" : isWarn ? "#fbbf24" : isInfo ? "#6ee7b7" : "#94a3b8"
+                return (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "baseline",
+                    background: isError ? "rgba(239,68,68,0.07)" : isWarn ? "rgba(251,191,36,0.04)" : "transparent",
+                  }}>
+                    <span style={{ color: "#3a3a3a", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
+                      {String(i + 1).padStart(4, " ")}
+                    </span>
+                    <span style={{ color, fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>
+                      {line}
+                    </span>
                   </div>
-                ))
-              ) : (
-                <div className="text-muted text-center py-6">
+                )
+              }) : (
+                <div style={{ color: "#444", textAlign: "center", padding: "24px 0", fontSize: 13 }}>
                   Нажмите "Загрузить" для просмотра логов
                 </div>
               )}

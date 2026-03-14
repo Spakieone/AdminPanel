@@ -94,8 +94,8 @@ const othersItems: NavItem[] = [
     icon: <BotIcon />,
     name: "Бот",
     subItems: [
-      { name: "Обзор", path: "/bot" },
-      { name: "Логи", path: "/bot?tab=logs" },
+      { name: "Обзор", path: "/bot?tab=overview" },
+      { name: "Логи бота", path: "/bot?tab=logs" },
     ],
   },
   {
