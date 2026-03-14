@@ -17,7 +17,6 @@ interface GlassTabsProps {
 export default function GlassTabs({ tabs, activeTab, onTabChange, className = '' }: GlassTabsProps) {
   return (
     <div className={cn("max-w-full relative", className)}>
-      {/* Scroll only on X. Add vertical padding so the top "lamp" isn't clipped by the scroll container. */}
       <div className="max-w-full overflow-x-auto no-scrollbar py-2">
         <div
           className={cn(
@@ -35,7 +34,9 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
                   "relative shrink-0 cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors",
-                  isActive ? "text-white" : "text-muted hover:text-secondary"
+                  isActive
+                    ? "dark:text-white text-[var(--accent)]"
+                    : "text-muted hover:text-secondary"
                 )}
                 style={{ zIndex: 10 }}
               >
@@ -48,8 +49,8 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                 {isActive && (
                   <motion.div
                     layoutId={`glass-tabs-lamp-${tabs.map(t => t.id).join('-')}`}
-                    className="absolute inset-0 w-full rounded-full"
-                    style={{ zIndex: 0, background: 'rgba(255,255,255,0.07)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1)' }}
+                    className="absolute inset-0 w-full rounded-full dark:bg-white/7"
+                    style={{ zIndex: 0 }}
                     initial={false}
                     transition={{
                       type: "spring",
@@ -57,11 +58,13 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                       damping: 30,
                     }}
                   >
-                    {/* Top "lamp" */}
-                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-white rounded-t-full">
-                      <div className="absolute w-12 h-6 bg-white/20 rounded-full blur-md -top-2 -left-2" />
-                      <div className="absolute w-8 h-6 bg-white/20 rounded-full blur-md -top-1" />
-                      <div className="absolute w-4 h-4 bg-white/20 rounded-full blur-sm top-0 left-2" />
+                    {/* Top "lamp" — white in dark mode, accent in light mode */}
+                    <div
+                      className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-t-full dark:bg-white bg-[var(--accent)]"
+                    >
+                      <div className="absolute w-12 h-6 dark:bg-white/20 bg-[var(--accent)]/20 rounded-full blur-md -top-2 -left-2" />
+                      <div className="absolute w-8 h-6 dark:bg-white/20 bg-[var(--accent)]/20 rounded-full blur-md -top-1" />
+                      <div className="absolute w-4 h-4 dark:bg-white/20 bg-[var(--accent)]/20 rounded-full blur-sm top-0 left-2" />
                     </div>
                   </motion.div>
                 )}
