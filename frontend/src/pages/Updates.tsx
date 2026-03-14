@@ -294,9 +294,9 @@ function UpdatePanel() {
                 : isSection ? "#c084fc"
                 : isStep ? "#60a5fa"
                 : isCmd ? "#cbd5e1"
-                : isArrow ? "#4b5563"
-                : isNpmAsset || isSendingContext ? "#4b5563"
-                : isGitHash ? "#94a3b8"
+                : isArrow ? "#566577"
+                : isNpmAsset || isSendingContext ? "#566577"
+                : isGitHash ? "#7a8fa6"
                 : "#6ee7b7"
 
               const lineNum = String(i + 1).padStart(4, " ")
