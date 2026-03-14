@@ -278,26 +278,38 @@ class GitHubUpdateManager:
         return {"ok": True, "started": True}
 
     def _run_cmd(self, cmd: List[str], *, cwd: Path, timeout_sec: int = 1800) -> str:
+        import select
         self._append_log(f"$ {' '.join(cmd)}")
-        res = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
             cwd=str(cwd),
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout_sec,
-            check=False,
+            bufsize=1,
         )
-        out = (res.stdout or "").strip()
-        err = (res.stderr or "").strip()
-        for line in out.splitlines()[-200:]:
-            if line.strip():
-                self._append_log(line)
-        for line in err.splitlines()[-200:]:
-            if line.strip():
-                self._append_log(line)
-        if res.returncode != 0:
-            raise RuntimeError(f"Command failed ({res.returncode}): {' '.join(cmd)}")
-        return out
+        all_out: List[str] = []
+        deadline = time.time() + timeout_sec
+        # Stream stdout and stderr line by line using select
+        streams = [proc.stdout, proc.stderr]
+        while streams:
+            if time.time() > deadline:
+                proc.kill()
+                raise RuntimeError(f"Timeout ({timeout_sec}s): {' '.join(cmd)}")
+            ready, _, _ = select.select(streams, [], streams, 1.0)
+            for s in ready:
+                line = s.readline()
+                if line:
+                    stripped = line.rstrip("\n")
+                    if stripped.strip():
+                        self._append_log(stripped)
+                        all_out.append(stripped)
+                else:
+                    streams.remove(s)
+        proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Command failed ({proc.returncode}): {' '.join(cmd)}")
+        return "\n".join(all_out)
 
     def _copy_preserve(self, src_root: Path, dst_root: Path, rel_path: str) -> None:
         src = src_root / rel_path
