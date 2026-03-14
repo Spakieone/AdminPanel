@@ -14,39 +14,29 @@ type Status = "idle" | "loading" | "done" | "error"
 
 type UpdateStatus = {
   running: boolean
+  stage?: string
   last_triggered_by?: string
   last_started_at?: number
   last_finished_at?: number
   last_exit_code?: number | null
 }
 
-// Map log lines to a stage-based progress percentage
-// startedAt: unix timestamp (seconds) of when the current run started
-function guessProgress(log: string[], startedAt?: number): number {
-  if (log.length === 0) return 0
-
-  // Filter only lines from the current run using timestamps
-  let lines = log
-  if (startedAt) {
-    const startMs = startedAt * 1000
-    // Log lines have format [YYYY-MM-DD HH:MM:SS] ...
-    const filtered = log.filter(line => {
-      const m = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/)
-      if (!m) return false
-      const lineMs = new Date(m[1].replace(" ", "T")).getTime()
-      return lineMs >= startMs - 5000 // 5s tolerance
-    })
-    if (filtered.length > 0) lines = filtered
-  }
-
-  const text = lines.join("\n").toLowerCase()
-  if (text.includes("перезапуск") || text.includes("restart") || text.includes("docker compose up")) return 90
-  if (text.includes("docker compose build") || text.includes("building")) return 70
-  if (text.includes("git pull") || text.includes("clone") || text.includes("загрузк")) return 50
-  if (text.includes("бэкап") || text.includes("backup") || text.includes("резервн")) return 30
-  if (text.includes("начало") || text.includes("start") || text.includes("запуск")) return 10
-  return 5
+const STAGE_PROGRESS: Record<string, number> = {
+  start: 5,
+  pull: 40,
+  build: 70,
+  done: 100,
+  // bare-metal stages
+  backup: 20,
+  download: 35,
+  extract: 50,
+  replace: 60,
+  restore: 65,
+  install: 75,
+  restart: 90,
+  failed: 0,
 }
+
 
 const SEGMENTS = [
   { label: "Старт",    pct: 5,   color: "#818cf8" },
@@ -153,7 +143,12 @@ function UpdatePanel() {
         setUpdateStatus(data.status)
         const isRunning = !!data.status?.running
         setRunning(isRunning)
-        if (!isRunning && data.status?.last_exit_code === 0) setProgress(100)
+        const stage = data.status?.stage as string | undefined
+        if (isRunning && stage && stage in STAGE_PROGRESS) {
+          setProgress(p => Math.max(p, STAGE_PROGRESS[stage]))
+        } else if (!isRunning && data.status?.last_exit_code === 0) {
+          setProgress(100)
+        }
       }
     } catch {
       failCountRef.current += 1
@@ -165,14 +160,12 @@ function UpdatePanel() {
     }
   }
 
-  const fetchLog = async (startedAt?: number) => {
+  const fetchLog = async () => {
     try {
       const res = await apiFetch("/api/github-update/log?lines=300")
       const data = await res.json()
       if (data.ok) {
-        const lines: string[] = data.lines || []
-        setLog(lines)
-        if (running) setProgress(guessProgress(lines, startedAt))
+        setLog(data.lines || [])
       }
     } catch {}
   }
@@ -185,11 +178,10 @@ function UpdatePanel() {
     if (running || restarting) {
       setShowLog(true)
       setProgress(p => p < 5 ? 5 : p)
-      const startedAt = updateStatus?.last_started_at
-      if (running) fetchLog(startedAt)
+      if (running) fetchLog()
       pollRef.current = setInterval(async () => {
         await fetchStatus()
-        if (running) await fetchLog(startedAt)
+        if (running) await fetchLog()
       }, 2000)
     } else {
       if (pollRef.current) {
