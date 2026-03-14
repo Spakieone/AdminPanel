@@ -2,8 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./webpanel-icon.svg" />
-    <link rel="shortcut icon" href="./webpanel-icon.svg" />
+    <link rel="icon" type="image/svg+xml" href="./webpanel-icon.svg" id="favicon-link" />
+    <link rel="shortcut icon" href="./webpanel-icon.svg" id="favicon-shortcut" />
+    <script>
+      if ('%VITE_APP_VARIANT%' === 'lk') {
+        document.getElementById('favicon-link').href = './favicon-lk.svg';
+        document.getElementById('favicon-shortcut').href = './favicon-lk.svg';
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Web Panel</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

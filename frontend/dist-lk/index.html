@@ -2,8 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./webpanel-icon.svg" />
-    <link rel="shortcut icon" href="./webpanel-icon.svg" />
+    <link rel="icon" type="image/svg+xml" href="./webpanel-icon.svg" id="favicon-link" />
+    <link rel="shortcut icon" href="./webpanel-icon.svg" id="favicon-shortcut" />
+    <script>
+      if ('lk' === 'lk') {
+        document.getElementById('favicon-link').href = './favicon-lk.svg';
+        document.getElementById('favicon-shortcut').href = './favicon-lk.svg';
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Web Panel</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -74,10 +80,10 @@
         overflow-x: hidden;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-D2u1ky2a.js"></script>
+    <script type="module" crossorigin src="/assets/index-BMw1U2hu.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/react-vendor-CgeT7Z0k.js">
     <link rel="modulepreload" crossorigin href="/assets/chart-vendor-CkoAX-yw.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-DW3n18NG.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-Cztw2CpA.css">
   </head>
   <body class="dark">
     <div id="root"></div>
