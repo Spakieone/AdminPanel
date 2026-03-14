@@ -152,6 +152,7 @@ function UpdatePanel() {
   const [showLog, setShowLog] = useState(false)
   const [progress, setProgress] = useState(0)
   const [donePhase, setDonePhase] = useState(false) // true after stage=done, before container restarts
+  const sessionStartedRef = useRef(false) // true only if update was started in this browser session
   const [error, setError] = useState<string | null>(null)
   const [restarting, setRestarting] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -171,7 +172,7 @@ function UpdatePanel() {
         const stage = data.status?.stage as string | undefined
         if (isRunning && stage && stage in STAGE_PROGRESS) {
           setProgress(p => Math.max(p, STAGE_PROGRESS[stage]))
-        } else if (!isRunning && (data.status?.last_exit_code === 0 || stage === "done")) {
+        } else if (!isRunning && sessionStartedRef.current && (data.status?.last_exit_code === 0 || stage === "done")) {
           setProgress(100)
           setDonePhase(true)
         }
@@ -246,6 +247,7 @@ function UpdatePanel() {
       const res = await apiFetch("/api/github-update/run", { method: "POST", headers })
       const data = await res.json()
       if (data.started) {
+        sessionStartedRef.current = true
         setRunning(true)
         setShowLog(true)
       } else {
@@ -259,7 +261,7 @@ function UpdatePanel() {
   }
 
   const lastFail = updateStatus && !updateStatus.running && updateStatus.last_exit_code != null && updateStatus.last_exit_code !== 0 && updateStatus.last_finished_at
-  const showProgress = running || donePhase || restarting || (lastFail && progress > 0)
+  const showProgress = (running || donePhase || restarting) && sessionStartedRef.current
 
   return (
     <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4">
