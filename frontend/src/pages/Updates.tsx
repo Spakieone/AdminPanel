@@ -144,16 +144,11 @@ function buildSubProgress(log: string[], startedAt?: number): number | null {
     || /step \d+\/\d+/i.test(fullText) || fullTl.includes("> frontend@")
   if (!buildStarted) return null
 
-  // Scan last 60 lines for recent stage markers (step 7+, successfully built, etc.)
-  const recent = lines.slice(-60)
-  const text = recent.join("\n")
-  const tl = text.toLowerCase()
-
-  // Use precise markers — order matters, most advanced stage first
-  if (tl.includes("перезапуск контейнера") || tl.includes("контейнер перезапускается")) return 98
-  if (tl.includes("successfully built") || tl.includes("successfully tagged") || tl.includes("образ собран")) return 95
-  if (tl.includes("step 14/") || tl.includes("step 15/") || tl.includes("step 16/")) return 92
-  if (tl.includes("step 7/") || tl.includes("step 8/") || tl.includes("step 9/") || tl.includes("step 10/") || tl.includes("step 11/") || tl.includes("step 12/") || tl.includes("step 13/")) return 87
+  // All markers checked on full filtered log — order matters, most advanced first
+  if (fullTl.includes("перезапуск контейнера") || fullTl.includes("контейнер перезапускается")) return 98
+  if (fullTl.includes("successfully built") || fullTl.includes("successfully tagged") || fullTl.includes("образ собран")) return 95
+  if (fullTl.includes("step 14/") || fullTl.includes("step 15/") || fullTl.includes("step 16/")) return 92
+  if (fullTl.includes("step 7/") || fullTl.includes("step 8/") || fullTl.includes("step 9/") || fullTl.includes("step 10/") || fullTl.includes("step 11/") || fullTl.includes("step 12/") || fullTl.includes("step 13/")) return 87
 
   // LK build markers — check full log (output is long, scrolls past last-60 window)
   if (fullTl.includes("dist-lk/index.html")) return 83
@@ -227,11 +222,9 @@ function UpdatePanel() {
         const lines: string[] = data.lines || []
         setLog(lines)
         // Refine progress from log sub-stages (only moves forward, never back)
-        if (startedAtRef.current) {
-          const sub = buildSubProgress(lines, startedAtRef.current)
-          if (sub !== null) {
-            setProgress(p => (sub > p && p < 100) ? sub : p)
-          }
+        const sub = buildSubProgress(lines, startedAtRef.current)
+        if (sub !== null) {
+          setProgress(p => (sub > p && p < 100) ? sub : p)
         }
       }
     } catch {}
