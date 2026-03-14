@@ -334,7 +334,7 @@ function UpdatePanel() {
             border: "1px solid color-mix(in srgb, #22c55e 30%, transparent)",
           }}
         >
-          {running ? "Обновляется..." : "Обновить сейчас"}
+          {running ? "Обновляется..." : "Обновить панель"}
         </button>
         {log.length > 0 && (
           <button
