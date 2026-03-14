@@ -131,7 +131,7 @@ function buildSubProgress(log: string[], startedAt?: number): number | null {
     const filtered = log.filter(line => {
       const m = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/)
       if (!m) return false
-      return new Date(m[1].replace(" ", "T")).getTime() >= startMs - 5000
+      return new Date(m[1].replace(" ", "T") + "Z").getTime() >= startMs - 5000
     })
     if (filtered.length > 0) lines = filtered
   }
@@ -222,9 +222,12 @@ function UpdatePanel() {
         const lines: string[] = data.lines || []
         setLog(lines)
         // Refine progress from log sub-stages (only moves forward, never back)
-        const sub = buildSubProgress(lines, startedAtRef.current)
-        if (sub !== null) {
-          setProgress(p => (sub > p && p < 100) ? sub : p)
+        // startedAtRef MUST be set — without it we'd match markers from previous runs
+        if (startedAtRef.current) {
+          const sub = buildSubProgress(lines, startedAtRef.current)
+          if (sub !== null) {
+            setProgress(p => (sub > p && p < 100) ? sub : p)
+          }
         }
       }
     } catch {}
