@@ -21,15 +21,31 @@ type UpdateStatus = {
 }
 
 // Map log lines to a stage-based progress percentage
-function guessProgress(log: string[]): number {
+// startedAt: unix timestamp (seconds) of when the current run started
+function guessProgress(log: string[], startedAt?: number): number {
   if (log.length === 0) return 0
-  const text = log.join("\n").toLowerCase()
+
+  // Filter only lines from the current run using timestamps
+  let lines = log
+  if (startedAt) {
+    const startMs = startedAt * 1000
+    // Log lines have format [YYYY-MM-DD HH:MM:SS] ...
+    const filtered = log.filter(line => {
+      const m = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/)
+      if (!m) return false
+      const lineMs = new Date(m[1].replace(" ", "T")).getTime()
+      return lineMs >= startMs - 5000 // 5s tolerance
+    })
+    if (filtered.length > 0) lines = filtered
+  }
+
+  const text = lines.join("\n").toLowerCase()
   if (text.includes("перезапуск") || text.includes("restart") || text.includes("docker compose up")) return 90
   if (text.includes("docker compose build") || text.includes("building")) return 70
   if (text.includes("git pull") || text.includes("clone") || text.includes("загрузк")) return 50
   if (text.includes("бэкап") || text.includes("backup") || text.includes("резервн")) return 30
   if (text.includes("начало") || text.includes("start") || text.includes("запуск")) return 10
-  return Math.min(5 + log.length * 2, 85)
+  return 5
 }
 
 const SEGMENTS = [
@@ -149,14 +165,14 @@ function UpdatePanel() {
     }
   }
 
-  const fetchLog = async () => {
+  const fetchLog = async (startedAt?: number) => {
     try {
       const res = await apiFetch("/api/github-update/log?lines=300")
       const data = await res.json()
       if (data.ok) {
         const lines: string[] = data.lines || []
         setLog(lines)
-        if (running) setProgress(guessProgress(lines))
+        if (running) setProgress(guessProgress(lines, startedAt))
       }
     } catch {}
   }
@@ -169,10 +185,11 @@ function UpdatePanel() {
     if (running || restarting) {
       setShowLog(true)
       setProgress(p => p < 5 ? 5 : p)
-      if (running) fetchLog()
+      const startedAt = updateStatus?.last_started_at
+      if (running) fetchLog(startedAt)
       pollRef.current = setInterval(async () => {
         await fetchStatus()
-        if (running) await fetchLog()
+        if (running) await fetchLog(startedAt)
       }, 2000)
     } else {
       if (pollRef.current) {
