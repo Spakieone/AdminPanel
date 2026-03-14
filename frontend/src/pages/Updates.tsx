@@ -42,7 +42,7 @@ const SEGMENTS = [
   { label: "Старт",    pct: 5,   color: "#818cf8" },
   { label: "Git pull", pct: 40,  color: "#34d399" },
   { label: "Сборка",  pct: 70,  color: "#60a5fa" },
-  { label: "Запуск",  pct: 98,  color: "#f43f5e" },
+  { label: "Запуск",  pct: 95,  color: "#f43f5e" },
   { label: "Готово",  pct: 100, color: "#4ade80" },
 ]
 
@@ -80,23 +80,12 @@ function SegmentedProgress({ pct }: { pct: number }) {
 
   return (
     <div style={{ width: "100%", userSelect: "none" }}>
-      {/* Segment labels — positioned by actual percent on track */}
-      <div style={{ position: "relative", height: 28, marginBottom: 4 }}>
-        {SEGMENTS.map((seg, i) => {
+      {/* Segment labels */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+        {SEGMENTS.map((seg) => {
           const reached = display >= seg.pct - 1
-          const isFirst = i === 0
-          const isLast = i === SEGMENTS.length - 1
-          const posStyle: React.CSSProperties = isFirst
-            ? { left: 0, transform: "none" }
-            : isLast
-            ? { right: 0, left: "auto", transform: "none" }
-            : { left: `${seg.pct}%`, transform: "translateX(-50%)" }
           return (
-            <div key={seg.label} style={{
-              position: "absolute",
-              ...posStyle,
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-            }}>
+            <div key={seg.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
               <div style={{
                 width: 8, height: 8, borderRadius: "50%",
                 background: reached ? seg.color : "#2a2a2a",
