@@ -35,8 +35,7 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
                   "relative shrink-0 cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors",
-                  "text-muted hover:text-secondary",
-                  isActive && "text-[var(--accent)]"
+                  isActive ? "text-[var(--accent)]" : "text-muted hover:text-secondary"
                 )}
                 style={{ zIndex: 10 }}
               >
@@ -49,7 +48,7 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                 {isActive && (
                   <motion.div
                     layoutId={`glass-tabs-lamp-${tabs.map(t => t.id).join('-')}`}
-                    className="absolute inset-0 w-full bg-accent-8 rounded-full"
+                    className="absolute inset-0 w-full bg-white/8 rounded-full"
                     style={{ zIndex: 0 }}
                     initial={false}
                     transition={{
@@ -58,7 +57,7 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                       damping: 30,
                     }}
                   >
-                    {/* Top "lamp" (restore stronger highlight like before) */}
+                    {/* Top "lamp" */}
                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-[var(--accent)] rounded-t-full">
                       <div className="absolute w-12 h-6 bg-accent-20 rounded-full blur-md -top-2 -left-2" />
                       <div className="absolute w-8 h-6 bg-accent-20 rounded-full blur-md -top-1" />
