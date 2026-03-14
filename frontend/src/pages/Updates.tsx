@@ -140,6 +140,11 @@ function buildSubProgress(log: string[], startedAt?: number): number | null {
   const text = recent.join("\n")
   const tl = text.toLowerCase()
 
+  // Guard: only return build sub-progress if docker build has actually started
+  // (i.e. we see "docker compose build" or "sending build context" or "step N/")
+  const buildStarted = tl.includes("sending build context") || tl.includes("step 1/") || tl.includes("image adminpanel")
+  if (!buildStarted) return null
+
   // Use precise markers — order matters, most advanced stage first
   if (tl.includes("перезапуск контейнера") || tl.includes("контейнер перезапускается")) return 98
   if (tl.includes("successfully built") || tl.includes("successfully tagged") || tl.includes("образ собран")) return 95
@@ -212,16 +217,12 @@ function UpdatePanel() {
       if (data.ok) {
         const lines: string[] = data.lines || []
         setLog(lines)
-        // Refine build progress using log sub-stages
-        // Only activates AFTER backend confirmed stage=build (p>=70) AND startedAt is known
+        // Refine progress from log sub-stages (only moves forward, never back)
         if (startedAtRef.current) {
-          setProgress(p => {
-            if (p >= 70 && p < 100) {
-              const sub = buildSubProgress(lines, startedAtRef.current)
-              if (sub !== null && sub > p) return sub
-            }
-            return p
-          })
+          const sub = buildSubProgress(lines, startedAtRef.current)
+          if (sub !== null) {
+            setProgress(p => (sub > p && p < 100) ? sub : p)
+          }
         }
       }
     } catch {}
