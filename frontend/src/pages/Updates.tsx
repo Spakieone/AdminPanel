@@ -252,17 +252,10 @@ function UpdatePanel() {
         <div
           ref={logRef}
           className="rounded-xl overflow-y-auto"
-          style={{ maxHeight: 460, background: "#0c0c0c", border: "1px solid #222", fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
+          style={{ maxHeight: 600, background: "#0c0c0c", border: "1px solid #222", fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
         >
-          {/* Terminal header */}
-          <div style={{ background: "#141414", borderBottom: "1px solid #222", padding: "8px 14px", display: "flex", alignItems: "center", gap: 7, position: "sticky", top: 0, zIndex: 1 }}>
-            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#ff5f57", display: "inline-block", flexShrink: 0 }} />
-            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#febc2e", display: "inline-block", flexShrink: 0 }} />
-            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#28c840", display: "inline-block", flexShrink: 0 }} />
-            <span style={{ flex: 1, textAlign: "center", color: "#444", fontSize: 11, letterSpacing: "0.08em", marginRight: 31 }}>update log</span>
-          </div>
           {/* Lines */}
-          <div style={{ padding: "8px 0" }}>
+          <div style={{ padding: "10px 0" }}>
             {log.map((line, i) => {
               // Parse timestamp
               const tsMatch = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s*(.*)$/)
@@ -320,11 +313,11 @@ function UpdatePanel() {
                   }}
                 >
                   {/* Line number */}
-                  <span style={{ color: "#2a2a2a", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
+                  <span style={{ color: "#3d3d3d", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
                     {lineNum}
                   </span>
                   {/* Timestamp */}
-                  <span style={{ color: "#333", fontSize: 11, flexShrink: 0, minWidth: 62, paddingRight: 10 }}>
+                  <span style={{ color: "#556", fontSize: 11, flexShrink: 0, minWidth: 62, paddingRight: 10 }}>
                     {ts}
                   </span>
                   {/* Content */}
