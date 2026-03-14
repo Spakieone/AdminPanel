@@ -251,19 +251,41 @@ function UpdatePanel() {
       {showLog && log.length > 0 && (
         <div
           ref={logRef}
-          className="rounded-xl border border-subtle p-3 font-mono text-[11px] leading-relaxed overflow-y-auto"
-          style={{ maxHeight: 280, background: "#0a0a0a", color: "#22c55e" }}
+          className="rounded-xl border border-subtle font-mono text-[11px] leading-relaxed overflow-y-auto"
+          style={{ maxHeight: 420, background: "#0d0d0d" }}
         >
-          {log.map((line, i) => (
-            <div key={i} style={{
-              color: line.toLowerCase().includes("error") || line.toLowerCase().includes("ошибк") ? "#f87171"
-                : line.toLowerCase().includes("warn") ? "#fbbf24"
-                : line.startsWith("[✓]") || line.includes("успешн") ? "#4ade80"
+          {/* Terminal header */}
+          <div style={{ background: "#1a1a1a", borderBottom: "1px solid #2a2a2a", padding: "6px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff5f57", display: "inline-block" }} />
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#febc2e", display: "inline-block" }} />
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#28c840", display: "inline-block" }} />
+            <span style={{ marginLeft: 8, color: "#666", fontSize: 10 }}>update log</span>
+          </div>
+          <div style={{ padding: "10px 14px" }}>
+            {log.map((line, i) => {
+              const lo = line.toLowerCase()
+              const isError = lo.includes("error") || lo.includes("ошибк") || lo.includes("failed") || lo.includes("fatal")
+              const isWarn = lo.includes("warn") || lo.includes("warning")
+              const isSuccess = line.startsWith("[✓]") || lo.includes("успешн") || lo.includes("built") || lo.includes("собран") || lo.includes("обновлён") || lo.includes("complete")
+              const isStep = lo.includes("step ") && lo.includes("/")
+              const isCmd = line.trimStart().startsWith("$")
+              const isArrow = line.trimStart().startsWith("--->") || line.trimStart().startsWith("-->")
+              const isInfo = lo.includes("загрузк") || lo.includes("сборк") || lo.includes("перезапуск") || lo.includes("git pull") || lo.includes("fetch") || lo.includes("reset")
+              const color = isError ? "#f87171"
+                : isWarn ? "#fbbf24"
+                : isSuccess ? "#4ade80"
+                : isStep ? "#60a5fa"
+                : isCmd ? "#e2e8f0"
+                : isArrow ? "#94a3b8"
+                : isInfo ? "#a78bfa"
                 : "#22c55e"
-            }}>
-              {line}
-            </div>
-          ))}
+              return (
+                <div key={i} style={{ color, marginBottom: 1, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                  {line}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -409,7 +431,7 @@ export default function Updates() {
   }, [])
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-primary">Обновления</h1>
         <p className="text-sm text-muted mt-1">Актуальность версий компонентов системы</p>
