@@ -82,13 +82,19 @@ function SegmentedProgress({ pct }: { pct: number }) {
     <div style={{ width: "100%", userSelect: "none" }}>
       {/* Segment labels — positioned by actual percent on track */}
       <div style={{ position: "relative", height: 28, marginBottom: 4 }}>
-        {SEGMENTS.map((seg) => {
+        {SEGMENTS.map((seg, i) => {
           const reached = display >= seg.pct - 1
+          const isFirst = i === 0
+          const isLast = i === SEGMENTS.length - 1
+          const posStyle: React.CSSProperties = isFirst
+            ? { left: 0, transform: "none" }
+            : isLast
+            ? { right: 0, left: "auto", transform: "none" }
+            : { left: `${seg.pct}%`, transform: "translateX(-50%)" }
           return (
             <div key={seg.label} style={{
               position: "absolute",
-              left: `${seg.pct}%`,
-              transform: "translateX(-50%)",
+              ...posStyle,
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
             }}>
               <div style={{
