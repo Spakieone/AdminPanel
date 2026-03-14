@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import React, { useCallback, useEffect, useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getBotConfigAsync } from '../utils/botConfig'
 import CapybaraLoader from '../components/common/CapybaraLoader'
@@ -101,6 +101,24 @@ function ModuleCard({ name, enabled, onToggle, loading }: ModuleCardProps) {
       </div>
     </div>
   )
+}
+
+function highlightMsg(msg: string, isError: boolean, isWarn: boolean): React.ReactNode {
+  const baseColor = isError ? "#f87171" : isWarn ? "#fbbf24" : "#cbd5e1"
+  // Split on HTTP methods and status codes
+  const TOKEN = /((?:GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\b|\b[1-5]\d{2}\b)/g
+  const parts = msg.split(TOKEN)
+  return parts.map((part, idx) => {
+    if (/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$/.test(part)) {
+      return <span key={idx} style={{ color: "#67e8f9", fontWeight: 600 }}>{part}</span>
+    }
+    const code = parseInt(part, 10)
+    if (/^\d{3}$/.test(part) && code >= 100 && code <= 599) {
+      const c = code >= 500 ? "#f87171" : code >= 400 ? "#fbbf24" : code >= 300 ? "#a78bfa" : code >= 200 ? "#4ade80" : "#94a3b8"
+      return <span key={idx} style={{ color: c, fontWeight: 700 }}>{part}</span>
+    }
+    return <span key={idx} style={{ color: baseColor }}>{part}</span>
+  })
 }
 
 export default function BotControl() {
@@ -525,13 +543,17 @@ export default function BotControl() {
           >
             <div style={{ padding: "10px 0" }}>
               {logs.length > 0 ? logs.map((line, i) => {
-                // Format: "2026-03-14T10:08:31+00:00 HOST python[PID]: LEVEL: message"
-                const m = line.match(/^(\d{4}-\d{2}-\d{2}T[\d:]+)[^\s]*\s+\S+\s+\S+:\s*(WARNING|ERROR|CRITICAL|INFO|DEBUG):\s*(.*)$/)
-                const isError = /error|critical|traceback/i.test(line)
-                const isWarn = !isError && /warning/i.test(line)
+                // Format A (uvicorn): "2026-03-14T10:13:26+00:00 HOST python[PID]: LEVEL: message"
+                const mA = line.match(/^\d{4}-\d{2}-\d{2}T([\d:]{8})[^\s]*\s+\S+\s+\S+:\s*(WARNING|ERROR|CRITICAL|INFO|DEBUG):\s*(.*)$/)
+                // Format B (bot logger): "2026-03-14T... HOST python[PID]: 2026-03-14 HH:MM:SS | LEVEL | module | message"
+                const mB = line.match(/^\d{4}-\d{2}-\d{2}T[^\s]*\s+\S+\s+\S+:\s*\d{4}-\d{2}-\d{2}\s+([\d:]{8})\s*\|\s*(WARNING|ERROR|CRITICAL|INFO|DEBUG)\s*\|\s*[^|]*\|\s*(.*)$/)
+
+                const isError = /\berror\b|\bcritical\b|\btraceback\b/i.test(line)
+                const isWarn = !isError && /\bwarning\b/i.test(line)
                 const bgColor = isError ? "rgba(239,68,68,0.07)" : isWarn ? "rgba(251,191,36,0.04)" : "transparent"
 
-                if (!m) {
+                const parsed = mA || mB
+                if (!parsed) {
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "baseline", background: bgColor }}>
                       <span style={{ color: "#3a3a3a", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
@@ -544,8 +566,7 @@ export default function BotControl() {
                   )
                 }
 
-                const [, ts, level, msg] = m
-                const time = ts.slice(11, 19)
+                const [, time, level, msg] = parsed
                 const levelColor = isError ? "#f87171" : isWarn ? "#fbbf24" : "#4ade80"
                 return (
                   <div key={i} style={{ display: "flex", alignItems: "baseline", background: bgColor }}>
@@ -554,7 +575,7 @@ export default function BotControl() {
                     </span>
                     <span style={{ color: "#4a5568", fontSize: 11, flexShrink: 0, minWidth: 62, paddingRight: 10 }}>{time}</span>
                     <span style={{ color: levelColor, fontSize: 11, flexShrink: 0, minWidth: 56, paddingRight: 10, fontWeight: 600 }}>{level}</span>
-                    <span style={{ color: isError ? "#f87171" : isWarn ? "#fbbf24" : "#cbd5e1", fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>{msg}</span>
+                    <span style={{ fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>{highlightMsg(msg, isError, isWarn)}</span>
                   </div>
                 )
               }) : (
