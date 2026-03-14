@@ -40,10 +40,11 @@ const STAGE_PROGRESS: Record<string, number> = {
 
 const SEGMENTS = [
   { label: "Старт",    pct: 5,   color: "#818cf8" },
-  { label: "Бэкап",   pct: 20,  color: "#60a5fa" },
   { label: "Git pull", pct: 40,  color: "#34d399" },
-  { label: "Сборка",  pct: 75,  color: "#f59e0b" },
-  { label: "Запуск",  pct: 90,  color: "#fb923c" },
+  { label: "Сборка",  pct: 71,  color: "#60a5fa" },
+  { label: "Панель",  pct: 77,  color: "#f59e0b" },
+  { label: "LK",      pct: 83,  color: "#fb923c" },
+  { label: "Запуск",  pct: 95,  color: "#f43f5e" },
   { label: "Готово",  pct: 100, color: "#4ade80" },
 ]
 
@@ -121,12 +122,36 @@ function SegmentedProgress({ pct }: { pct: number }) {
   )
 }
 
+// Detect build sub-stage from log lines to get finer progress during docker compose build
+function buildSubProgress(log: string[]): number | null {
+  // Scan last 60 lines for build signals (in order of increasing progress)
+  const recent = log.slice(-60)
+  const text = recent.join("\n")
+  const tl = text.toLowerCase()
+
+  if (tl.includes("перезапуск контейнера") || tl.includes("контейнер перезапускается")) return 98
+  if (tl.includes("successfully built") || tl.includes("successfully tagged") || tl.includes("образ собран")) return 95
+  if (tl.includes("step 14/") || tl.includes("step 15/") || tl.includes("step 16/") || tl.includes("copy --from=frontend_builder")) return 92
+  if (tl.includes("step 7/") || tl.includes("step 8/") || tl.includes("step 9/") || tl.includes("from python")) return 87
+  if (tl.includes("build:lk") || tl.includes("✓ built in") && tl.includes("dist-lk")) return 83
+  if (tl.includes("> frontend@") && tl.includes("build:lk")) return 80
+  // adminpanel build finished (dist/index.html appeared)
+  if (tl.includes("dist/index.html") && !tl.includes("dist-lk")) return 77
+  // adminpanel build started (npm run build output)
+  if (tl.includes("> frontend@") && tl.includes("build\n")) return 74
+  if (tl.includes("step 6/") || tl.includes("run npm run build")) return 72
+  if (tl.includes("step 5/") || tl.includes("step 4/") || tl.includes("step 3/") || tl.includes("step 2/") || tl.includes("step 1/")) return 71
+
+  return null
+}
+
 function UpdatePanel() {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
   const [running, setRunning] = useState(false)
   const [log, setLog] = useState<string[]>([])
   const [showLog, setShowLog] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [donePhase, setDonePhase] = useState(false) // true after stage=done, before container restarts
   const [error, setError] = useState<string | null>(null)
   const [restarting, setRestarting] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -146,15 +171,16 @@ function UpdatePanel() {
         const stage = data.status?.stage as string | undefined
         if (isRunning && stage && stage in STAGE_PROGRESS) {
           setProgress(p => Math.max(p, STAGE_PROGRESS[stage]))
-        } else if (!isRunning && data.status?.last_exit_code === 0) {
+        } else if (!isRunning && (data.status?.last_exit_code === 0 || stage === "done")) {
           setProgress(100)
+          setDonePhase(true)
         }
       }
     } catch {
       failCountRef.current += 1
       if (failCountRef.current >= 2) {
-        // Контейнер перезапускается
         setRestarting(true)
+        setDonePhase(false)
         setProgress(95)
       }
     }
@@ -165,7 +191,16 @@ function UpdatePanel() {
       const res = await apiFetch("/api/github-update/log?lines=300")
       const data = await res.json()
       if (data.ok) {
-        setLog(data.lines || [])
+        const lines: string[] = data.lines || []
+        setLog(lines)
+        // Refine build progress using log sub-stages (active during build stage)
+        setProgress(p => {
+          if (p >= 70 && p < 100) {
+            const sub = buildSubProgress(lines)
+            if (sub !== null) return Math.max(p, sub)
+          }
+          return p
+        })
       }
     } catch {}
   }
@@ -205,6 +240,7 @@ function UpdatePanel() {
     setError(null)
     setLog([])
     setProgress(5)
+    setDonePhase(false)
     try {
       const headers = await getAuthHeaders()
       const res = await apiFetch("/api/github-update/run", { method: "POST", headers })
@@ -222,9 +258,8 @@ function UpdatePanel() {
     }
   }
 
-  const lastSuccess = updateStatus && !updateStatus.running && updateStatus.last_exit_code === 0 && updateStatus.last_finished_at
   const lastFail = updateStatus && !updateStatus.running && updateStatus.last_exit_code != null && updateStatus.last_exit_code !== 0 && updateStatus.last_finished_at
-  const showProgress = running || (lastSuccess && progress > 0) || (lastFail && progress > 0)
+  const showProgress = running || donePhase || restarting || (lastFail && progress > 0)
 
   return (
     <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4">
@@ -246,7 +281,9 @@ function UpdatePanel() {
           <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#f59e0b_12%,transparent)] text-amber-400 shrink-0 animate-pulse">Перезапуск...</span>
         ) : running ? (
           <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#3b82f6_12%,transparent)] text-blue-400 shrink-0 animate-pulse">Выполняется...</span>
-        ) : lastSuccess ? (
+        ) : donePhase ? (
+          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#f59e0b_12%,transparent)] text-amber-400 shrink-0 animate-pulse">Перезапуск...</span>
+        ) : updateStatus?.last_exit_code === 0 && updateStatus?.last_finished_at ? (
           <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#22c55e_12%,transparent)] text-emerald-400 shrink-0">Успешно</span>
         ) : lastFail ? (
           <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#ef4444_12%,transparent)] text-rose-400 shrink-0">Ошибка</span>
@@ -260,8 +297,8 @@ function UpdatePanel() {
       {/* Progress bar */}
       {showProgress && (
         <>
-          <SegmentedProgress pct={lastSuccess ? 100 : progress} />
-          {(progress >= 100 || lastSuccess) && !restarting && (
+          <SegmentedProgress pct={progress} />
+          {donePhase && !restarting && (
             <div className="text-xs text-amber-400 bg-[color-mix(in_srgb,#f59e0b_8%,transparent)] rounded-lg px-3 py-2 text-center animate-pulse">
               Контейнер перезапускается. Панель будет доступна через ~30 секунд.
             </div>
