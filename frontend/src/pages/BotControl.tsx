@@ -545,8 +545,8 @@ export default function BotControl() {
               {logs.length > 0 ? logs.map((line, i) => {
                 // Format A (uvicorn): "2026-03-14T10:13:26+00:00 HOST python[PID]: LEVEL: message"
                 const mA = line.match(/^\d{4}-\d{2}-\d{2}T([\d:]{8})[^\s]*\s+\S+\s+\S+:\s*(WARNING|ERROR|CRITICAL|INFO|DEBUG):\s*(.*)$/)
-                // Format B (bot logger): "2026-03-14T... HOST python[PID]: 2026-03-14 HH:MM:SS | LEVEL | module | message"
-                const mB = line.match(/^\d{4}-\d{2}-\d{2}T[^\s]*\s+\S+\s+\S+:\s*\d{4}-\d{2}-\d{2}\s+([\d:]{8})\s*\|\s*(WARNING|ERROR|CRITICAL|INFO|DEBUG)\s*\|\s*[^|]*\|\s*(.*)$/)
+                // Format B (bot logger): "2026-03-14T... HOST python[PID]: 2026-03-14 HH:MM:SS | Module | LEVEL | location | message"
+                const mB = line.match(/^\d{4}-\d{2}-\d{2}T[^\s]*\s+\S+\s+\S+:\s*\d{4}-\d{2}-\d{2}\s+([\d:]{8})\s*\|\s*[^|]*\|\s*(WARNING|ERROR|CRITICAL|INFO|DEBUG)\s*\|\s*[^|]*\|\s*(.*)$/)
 
                 const isError = /\berror\b|\bcritical\b|\btraceback\b/i.test(line)
                 const isWarn = !isError && /\bwarning\b/i.test(line)
