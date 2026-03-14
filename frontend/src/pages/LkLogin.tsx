@@ -271,8 +271,6 @@ export const SignInPage = ({ className }: SignInPageProps) => {
     <div className={cn("w-full min-h-screen bg-black relative", className)}>
       <DotBackground />
 
-      <NavBar items={navItems} />
-
       <div className="relative z-10 flex h-screen items-center justify-center px-4">
         <div className="w-full max-w-sm">
               <AnimatePresence mode="wait">
