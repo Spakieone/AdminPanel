@@ -48,8 +48,8 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                 {isActive && (
                   <motion.div
                     layoutId={`glass-tabs-lamp-${tabs.map(t => t.id).join('-')}`}
-                    className="absolute inset-0 w-full bg-white/8 rounded-full"
-                    style={{ zIndex: 0 }}
+                    className="absolute inset-0 w-full rounded-full"
+                    style={{ zIndex: 0, background: 'rgba(255,255,255,0.07)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1)' }}
                     initial={false}
                     transition={{
                       type: "spring",
