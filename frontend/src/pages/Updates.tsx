@@ -355,6 +355,19 @@ function VersionCard({
           <div className="text-xs text-rose-400 bg-[color-mix(in_srgb,#ef4444_8%,transparent)] rounded-lg px-3 py-2">{info.error}</div>
         )}
 
+        <button
+          onClick={onCheck}
+          disabled={status === "loading"}
+          className="w-full py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+            color: "var(--accent)",
+            border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+          }}
+        >
+          {status === "loading" ? "Проверяем..." : status === "done" ? "Обновить статус" : "Проверить обновления"}
+        </button>
+
         {hasUpdate && updateUrl && (
           <a
             href={updateUrl} target="_blank" rel="noopener noreferrer"
@@ -369,19 +382,6 @@ function VersionCard({
             Перейти к обновлению →
           </a>
         )}
-
-        <button
-          onClick={onCheck}
-          disabled={status === "loading"}
-          className="w-full py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
-            color: "var(--accent)",
-            border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-          }}
-        >
-          {status === "loading" ? "Проверяем..." : status === "done" ? "Обновить статус" : "Проверить обновления"}
-        </button>
       </div>
     </div>
   )
