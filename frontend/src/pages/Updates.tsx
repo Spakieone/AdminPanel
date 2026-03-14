@@ -303,7 +303,8 @@ function VersionCard({
   const hasError = info?.error
 
   return (
-    <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4">
+    <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4 min-h-[220px]">
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] flex items-center justify-center text-[var(--accent)]">
@@ -327,6 +328,7 @@ function VersionCard({
         )}
       </div>
 
+      {/* Version blocks */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-overlay-xs p-3">
           <div className="text-[10px] uppercase tracking-widest text-faint mb-1">Установлена</div>
@@ -344,37 +346,43 @@ function VersionCard({
         </div>
       </div>
 
-      {hasError && (
-        <div className="text-xs text-rose-400 bg-[color-mix(in_srgb,#ef4444_8%,transparent)] rounded-lg px-3 py-2">{info.error}</div>
-      )}
+      {/* Spacer — pushes bottom section down */}
+      <div className="flex-1" />
 
-      {hasUpdate && updateUrl && (
-        <a
-          href={updateUrl} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-amber-400 no-underline transition-opacity hover:opacity-80"
-          style={{ background: "color-mix(in srgb, #f59e0b 10%, transparent)", border: "1px solid color-mix(in srgb, #f59e0b 25%, transparent)" }}
+      {/* Bottom section — always at the same level across cards */}
+      <div className="flex flex-col gap-2">
+        {hasError && (
+          <div className="text-xs text-rose-400 bg-[color-mix(in_srgb,#ef4444_8%,transparent)] rounded-lg px-3 py-2">{info.error}</div>
+        )}
+
+        {hasUpdate && updateUrl && (
+          <a
+            href={updateUrl} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-amber-400 no-underline transition-opacity hover:opacity-80"
+            style={{ background: "color-mix(in srgb, #f59e0b 10%, transparent)", border: "1px solid color-mix(in srgb, #f59e0b 25%, transparent)" }}
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Перейти к обновлению →
+          </a>
+        )}
+
+        <button
+          onClick={onCheck}
+          disabled={status === "loading"}
+          className="w-full py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+            color: "var(--accent)",
+            border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+          }}
         >
-          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Перейти к обновлению →
-        </a>
-      )}
-
-      <button
-        onClick={onCheck}
-        disabled={status === "loading"}
-        className="w-full py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{
-          background: "color-mix(in srgb, var(--accent) 14%, transparent)",
-          color: "var(--accent)",
-          border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-        }}
-      >
-        {status === "loading" ? "Проверяем..." : status === "done" ? "Обновить статус" : "Проверить обновления"}
-      </button>
+          {status === "loading" ? "Проверяем..." : status === "done" ? "Обновить статус" : "Проверить обновления"}
+        </button>
+      </div>
     </div>
   )
 }
@@ -438,7 +446,7 @@ export default function Updates() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
           <VersionCard
             title="Панель управления" subtitle="Adminpanel + ЛК"
             icon={<PanelIcon />} info={panelInfo} status={panelStatus} onCheck={checkPanel}
