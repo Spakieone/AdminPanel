@@ -364,7 +364,8 @@ class GitHubUpdateManager:
             # /host-project смонтирован как rw volume в docker-compose.yml
             container_project_dir = "/host-project"
             host_dir = os.environ.get("HOST_PROJECT_DIR", "/root/adminpanel")
-            compose_file = f"{host_dir}/docker-compose.yml"
+            # Use container path — /host-project is the volume mount accessible inside container
+            compose_file = f"{container_project_dir}/docker-compose.yml"
             self._append_log(f"Project dir (host): {host_dir}")
 
             # Step 1: git pull (внутри контейнера через /host-project)
