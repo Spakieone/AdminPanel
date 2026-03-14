@@ -80,12 +80,17 @@ function SegmentedProgress({ pct }: { pct: number }) {
 
   return (
     <div style={{ width: "100%", userSelect: "none" }}>
-      {/* Segment labels */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+      {/* Segment labels — positioned by actual percent on track */}
+      <div style={{ position: "relative", height: 28, marginBottom: 4 }}>
         {SEGMENTS.map((seg) => {
           const reached = display >= seg.pct - 1
           return (
-            <div key={seg.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+            <div key={seg.label} style={{
+              position: "absolute",
+              left: `${seg.pct}%`,
+              transform: "translateX(-50%)",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+            }}>
               <div style={{
                 width: 8, height: 8, borderRadius: "50%",
                 background: reached ? seg.color : "#2a2a2a",
