@@ -140,17 +140,22 @@ function buildSubProgress(log: string[], startedAt?: number): number | null {
   const text = recent.join("\n")
   const tl = text.toLowerCase()
 
+  // Use precise markers — order matters, most advanced stage first
   if (tl.includes("перезапуск контейнера") || tl.includes("контейнер перезапускается")) return 98
   if (tl.includes("successfully built") || tl.includes("successfully tagged") || tl.includes("образ собран")) return 95
-  if (tl.includes("step 14/") || tl.includes("step 15/") || tl.includes("step 16/") || tl.includes("copy --from=frontend_builder")) return 92
-  if (tl.includes("step 7/") || tl.includes("step 8/") || tl.includes("step 9/") || tl.includes("from python")) return 87
-  if (tl.includes("build:lk") || tl.includes("✓ built in") && tl.includes("dist-lk")) return 83
-  if (tl.includes("> frontend@") && tl.includes("build:lk")) return 80
-  // adminpanel build finished (dist/index.html appeared)
-  if (tl.includes("dist/index.html") && !tl.includes("dist-lk")) return 77
-  // adminpanel build started (npm run build output)
-  if (tl.includes("> frontend@") && tl.includes("build\n")) return 74
-  if (tl.includes("step 6/") || tl.includes("run npm run build")) return 72
+  if (tl.includes("step 14/") || tl.includes("step 15/") || tl.includes("step 16/")) return 92
+  if (tl.includes("step 7/") || tl.includes("step 8/") || tl.includes("step 9/") || tl.includes("step 10/") || tl.includes("step 11/") || tl.includes("step 12/") || tl.includes("step 13/")) return 87
+  // LK build finished: dist-lk/index.html line in output
+  if (tl.includes("dist-lk/index.html")) return 83
+  // LK build started: "> frontend@" followed by "build:lk" as npm script output (not Step line)
+  if (text.includes("> frontend@0.0.0 build:lk")) return 80
+  // adminpanel build finished: dist/index.html in output (not dist-lk)
+  if (text.match(/dist\/index\.html\s+\d/) && !tl.includes("dist-lk/index.html")) return 77
+  // adminpanel build started: "> frontend@" build script output
+  if (text.includes("> frontend@0.0.0 build")) return 74
+  // Step 6 = RUN npm run build (compilation starting)
+  if (tl.includes("step 6/")) return 72
+  // Step 1-5 = Docker layers
   if (tl.includes("step 5/") || tl.includes("step 4/") || tl.includes("step 3/") || tl.includes("step 2/") || tl.includes("step 1/")) return 71
 
   return null
