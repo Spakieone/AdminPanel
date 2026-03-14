@@ -251,37 +251,87 @@ function UpdatePanel() {
       {showLog && log.length > 0 && (
         <div
           ref={logRef}
-          className="rounded-xl border border-subtle font-mono text-[11px] leading-relaxed overflow-y-auto"
-          style={{ maxHeight: 420, background: "#0d0d0d" }}
+          className="rounded-xl overflow-y-auto"
+          style={{ maxHeight: 460, background: "#0c0c0c", border: "1px solid #222", fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
         >
           {/* Terminal header */}
-          <div style={{ background: "#1a1a1a", borderBottom: "1px solid #2a2a2a", padding: "6px 12px", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff5f57", display: "inline-block" }} />
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#febc2e", display: "inline-block" }} />
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#28c840", display: "inline-block" }} />
-            <span style={{ marginLeft: 8, color: "#666", fontSize: 10 }}>update log</span>
+          <div style={{ background: "#141414", borderBottom: "1px solid #222", padding: "8px 14px", display: "flex", alignItems: "center", gap: 7, position: "sticky", top: 0, zIndex: 1 }}>
+            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#ff5f57", display: "inline-block", flexShrink: 0 }} />
+            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#febc2e", display: "inline-block", flexShrink: 0 }} />
+            <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#28c840", display: "inline-block", flexShrink: 0 }} />
+            <span style={{ flex: 1, textAlign: "center", color: "#444", fontSize: 11, letterSpacing: "0.08em", marginRight: 31 }}>update log</span>
           </div>
-          <div style={{ padding: "10px 14px" }}>
+          {/* Lines */}
+          <div style={{ padding: "8px 0" }}>
             {log.map((line, i) => {
-              const lo = line.toLowerCase()
-              const isError = lo.includes("error") || lo.includes("ошибк") || lo.includes("failed") || lo.includes("fatal")
-              const isWarn = lo.includes("warn") || lo.includes("warning")
-              const isSuccess = line.startsWith("[✓]") || lo.includes("успешн") || lo.includes("built") || lo.includes("собран") || lo.includes("обновлён") || lo.includes("complete")
-              const isStep = lo.includes("step ") && lo.includes("/")
-              const isCmd = line.trimStart().startsWith("$")
-              const isArrow = line.trimStart().startsWith("--->") || line.trimStart().startsWith("-->")
-              const isInfo = lo.includes("загрузк") || lo.includes("сборк") || lo.includes("перезапуск") || lo.includes("git pull") || lo.includes("fetch") || lo.includes("reset")
-              const color = isError ? "#f87171"
+              // Parse timestamp
+              const tsMatch = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s*(.*)$/)
+              const ts = tsMatch ? tsMatch[1].slice(11) : "" // only HH:MM:SS
+              const text = tsMatch ? tsMatch[2] : line
+
+              const tlo = text.toLowerCase()
+
+              // Classify
+              const isError = tlo.includes("error") || tlo.includes("ошибк") || tlo.includes("failed") || tlo.includes("fatal")
+              const isWarn = !isError && (tlo.includes("warn") || tlo.includes("deprecated"))
+              const isSuccess = !isError && (
+                /[✓✔]/.test(text) || tlo.includes("успешн") || tlo.includes("обновлён") ||
+                tlo.includes("образ собран") || tlo.includes("код обновлён") ||
+                (tlo.includes("built in") && /\d+\.\d+s/.test(tlo)) ||
+                tlo.includes("successfully built") || tlo.includes("successfully tagged")
+              )
+              const isStep = !isError && tlo.includes("step ") && /\d+\/\d+/.test(tlo)
+              const isArrow = text.trimStart().startsWith("--->") || text.trimStart().startsWith("==>")
+              const isCmd = text.trimStart().startsWith("$")
+              const isSection = !isError && !isCmd && (
+                tlo.includes("загрузка обновлений") || tlo.includes("сборка docker") ||
+                tlo.includes("перезапуск") || tlo.includes("update started by") ||
+                tlo.includes("project dir")
+              )
+              const isNpmAsset = /dist[/-]/.test(text) && /\d+\.\d+ k[bB]/.test(text)
+              const isGitHash = /^[a-f0-9]{7,40}$/.test(text.trim()) || text.startsWith("HEAD is now at")
+              const isEmpty = text.trim() === ""
+
+              if (isEmpty) return <div key={i} style={{ height: 6 }} />
+
+              const textColor = isError ? "#f87171"
                 : isWarn ? "#fbbf24"
                 : isSuccess ? "#4ade80"
+                : isSection ? "#c084fc"
                 : isStep ? "#60a5fa"
-                : isCmd ? "#e2e8f0"
-                : isArrow ? "#94a3b8"
-                : isInfo ? "#a78bfa"
-                : "#22c55e"
+                : isCmd ? "#cbd5e1"
+                : isArrow ? "#475569"
+                : isNpmAsset ? "#374151"
+                : isGitHash ? "#94a3b8"
+                : "#6ee7b7"
+
+              const lineNum = String(i + 1).padStart(4, " ")
+
               return (
-                <div key={i} style={{ color, marginBottom: 1, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-                  {line}
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 0,
+                    padding: "0 0",
+                    opacity: isNpmAsset ? 0.45 : isArrow ? 0.55 : 1,
+                    background: isError ? "rgba(239,68,68,0.06)" : isSuccess && !isNpmAsset ? "rgba(74,222,128,0.03)" : "transparent",
+                  }}
+                >
+                  {/* Line number */}
+                  <span style={{ color: "#2a2a2a", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
+                    {lineNum}
+                  </span>
+                  {/* Timestamp */}
+                  <span style={{ color: "#333", fontSize: 11, flexShrink: 0, minWidth: 62, paddingRight: 10 }}>
+                    {ts}
+                  </span>
+                  {/* Content */}
+                  <span style={{ color: textColor, fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>
+                    {isCmd && <span style={{ color: "#4b5563" }}>$ </span>}
+                    {isCmd ? text.trimStart().replace(/^\$\s*/, "") : text}
+                  </span>
                 </div>
               )
             })}
