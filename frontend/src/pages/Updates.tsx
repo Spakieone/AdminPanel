@@ -141,8 +141,11 @@ function buildSubProgress(log: string[], startedAt?: number): number | null {
   const tl = text.toLowerCase()
 
   // Guard: only return build sub-progress if docker build has actually started
-  // (i.e. we see "docker compose build" or "sending build context" or "step N/")
-  const buildStarted = tl.includes("sending build context") || tl.includes("step 1/") || tl.includes("image adminpanel")
+  // Check recent window AND full filtered log (early markers scroll out of last-60 window)
+  const fullText = lines.join("\n").toLowerCase()
+  const buildStarted = tl.includes("sending build context") || /step \d+\/\d+/.test(tl)
+    || tl.includes("image adminpanel") || tl.includes("> frontend@") || tl.includes("using cache")
+    || fullText.includes("sending build context") || fullText.includes("image adminpanel")
   if (!buildStarted) return null
 
   // Use precise markers — order matters, most advanced stage first
