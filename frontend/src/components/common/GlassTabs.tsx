@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 import { cn } from '../../lib/utils'
 
 interface Tab {
@@ -14,7 +15,23 @@ interface GlassTabsProps {
   className?: string
 }
 
+function useIsDark() {
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    obs.observe(document.documentElement, { attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
+
 export default function GlassTabs({ tabs, activeTab, onTabChange, className = '' }: GlassTabsProps) {
+  const isDark = useIsDark()
+
   return (
     <div className={cn("max-w-full relative", className)}>
       <div className="max-w-full overflow-x-auto no-scrollbar py-2">
@@ -27,6 +44,10 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
         >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id
+            const activeTextColor = isDark ? '#ffffff' : 'var(--accent)'
+            const activeBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'
+            const activeBorder = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+            const lampColor = isDark ? '#ffffff' : 'var(--accent)'
 
             return (
               <button
@@ -34,11 +55,9 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
                   "relative shrink-0 cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors",
-                  isActive
-                    ? "dark:text-white text-[var(--accent)]"
-                    : "text-muted hover:text-secondary"
+                  !isActive && "text-muted hover:text-secondary"
                 )}
-                style={{ zIndex: 10 }}
+                style={{ zIndex: 10, color: isActive ? activeTextColor : undefined }}
               >
                 <span className="relative" style={{ zIndex: 20 }}>
                   {tab.label}
@@ -49,22 +68,15 @@ export default function GlassTabs({ tabs, activeTab, onTabChange, className = ''
                 {isActive && (
                   <motion.div
                     layoutId={`glass-tabs-lamp-${tabs.map(t => t.id).join('-')}`}
-                    className="absolute inset-0 w-full rounded-full dark:bg-white/7"
-                    style={{ zIndex: 0 }}
+                    className="absolute inset-0 w-full rounded-full"
+                    style={{ zIndex: 0, background: activeBg, boxShadow: `inset 0 0 0 1px ${activeBorder}` }}
                     initial={false}
-                    transition={{
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 30,
-                    }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   >
-                    {/* Top "lamp" — white in dark mode, accent in light mode */}
-                    <div
-                      className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-t-full dark:bg-white bg-[var(--accent)]"
-                    >
-                      <div className="absolute w-12 h-6 dark:bg-white/20 bg-[var(--accent)]/20 rounded-full blur-md -top-2 -left-2" />
-                      <div className="absolute w-8 h-6 dark:bg-white/20 bg-[var(--accent)]/20 rounded-full blur-md -top-1" />
-                      <div className="absolute w-4 h-4 dark:bg-white/20 bg-[var(--accent)]/20 rounded-full blur-sm top-0 left-2" />
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-t-full" style={{ background: lampColor }}>
+                      <div className="absolute w-12 h-6 rounded-full blur-md -top-2 -left-2" style={{ background: lampColor, opacity: 0.25 }} />
+                      <div className="absolute w-8 h-6 rounded-full blur-md -top-1" style={{ background: lampColor, opacity: 0.25 }} />
+                      <div className="absolute w-4 h-4 rounded-full blur-sm top-0 left-2" style={{ background: lampColor, opacity: 0.25 }} />
                     </div>
                   </motion.div>
                 )}
