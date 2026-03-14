@@ -245,8 +245,8 @@ function ProfileForm({ profile, botProfiles, allProfiles, onSaved, onDeleted }: 
                 </span>
                 {hintPos && (
                   <div className="pointer-events-none" style={{ position: 'fixed', left: hintPos.x, top: hintPos.below ? hintPos.y + 8 : hintPos.y - 8, transform: hintPos.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)', zIndex: 200000 }}>
-                    <div className="mb-1.5 px-2 py-1 text-xs text-white text-center bg-[#1a1a1a] rounded-md border border-white/10">Отображается в шапке письма и заголовке вкладки браузера</div>
                     <img src="/webpanel/hints/codemail.png" alt="Пример письма" className="w-96 rounded-lg shadow-2xl border border-white/10" />
+                    <div className="mt-1.5 px-2 py-1 text-xs text-white/80 text-center bg-[#111] rounded-md border border-white/10">Отображается в шапке письма и заголовке вкладки браузера</div>
                   </div>
                 )}
               </div>
