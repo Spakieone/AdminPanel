@@ -239,13 +239,13 @@ function ProfileForm({ profile, botProfiles, allProfiles, onSaved, onDeleted }: 
               <div className="flex items-center gap-1 mb-1">
                 <label className="text-xs font-medium text-muted">Заголовок / бренд</label>
                 <span ref={hintRef} className="cursor-help inline-block"
-                  onMouseEnter={() => { const el = hintRef.current; if (el) { const r = el.getBoundingClientRect(); const below = r.top < window.innerHeight / 2; setHintPos({ x: r.left + r.width / 2, y: below ? r.bottom : r.top, below }) } }}
+                  onMouseEnter={() => { const el = hintRef.current; if (el) { const r = el.getBoundingClientRect(); setHintPos({ x: r.left + r.width / 2, y: r.bottom, below: true }) } }}
                   onMouseLeave={() => setHintPos(null)}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted/50 hover:text-muted transition-colors"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
                 </span>
                 {hintPos && (
-                  <div className="pointer-events-none" style={{ position: 'fixed', left: hintPos.x, top: hintPos.below ? hintPos.y + 8 : hintPos.y - 8, transform: hintPos.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)', zIndex: 200000 }}>
-                    <img src="/webpanel/hints/codemail.png" alt="Пример письма" className="w-96 rounded-lg shadow-2xl border border-white/10" />
+                  <div className="pointer-events-none" style={{ position: 'fixed', left: Math.min(hintPos.x, window.innerWidth - 200), top: hintPos.y + 8, transform: 'translate(-50%, 0)', zIndex: 200000, maxWidth: 384 }}>
+                    <img src="/webpanel/hints/codemail.png" alt="Пример письма" className="w-96 rounded-lg shadow-2xl border border-white/10" style={{ maxHeight: window.innerHeight - hintPos.y - 60, objectFit: 'cover', objectPosition: 'top' }} />
                     <div className="mt-1.5 px-2 py-1 text-xs text-white/80 text-center bg-[#111] rounded-md border border-white/10">Отображается в шапке письма и заголовке вкладки браузера</div>
                   </div>
                 )}
