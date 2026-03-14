@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { apiFetch, getAuthHeaders } from "../api/client"
 
 type VersionInfo = {
@@ -20,7 +20,7 @@ type UpdateStatus = {
   last_exit_code?: number | null
 }
 
-// Угадываем прогресс по строкам лога
+// Map log lines to a stage-based progress percentage
 function guessProgress(log: string[]): number {
   if (log.length === 0) return 0
   const text = log.join("\n").toLowerCase()
@@ -32,42 +32,84 @@ function guessProgress(log: string[]): number {
   return Math.min(5 + log.length * 2, 85)
 }
 
-function ProgressBar({ pct, running }: { pct: number; running: boolean }) {
+const SEGMENTS = [
+  { label: "Старт",    pct: 5,   color: "#818cf8" },
+  { label: "Бэкап",   pct: 20,  color: "#60a5fa" },
+  { label: "Git pull", pct: 40,  color: "#34d399" },
+  { label: "Сборка",  pct: 75,  color: "#f59e0b" },
+  { label: "Запуск",  pct: 90,  color: "#fb923c" },
+  { label: "Готово",  pct: 100, color: "#4ade80" },
+]
+
+function SegmentedProgress({ pct }: { pct: number }) {
+  const animRef = useRef<number | null>(null)
+  const displayRef = useRef(0)
+  const [display, setDisplay] = useState(0)
+
+  const animate = useCallback((target: number) => {
+    if (animRef.current) cancelAnimationFrame(animRef.current)
+    const step = () => {
+      const diff = target - displayRef.current
+      if (Math.abs(diff) < 0.3) {
+        displayRef.current = target
+        setDisplay(target)
+        return
+      }
+      displayRef.current += diff * 0.08
+      setDisplay(Math.round(displayRef.current * 10) / 10)
+      animRef.current = requestAnimationFrame(step)
+    }
+    animRef.current = requestAnimationFrame(step)
+  }, [])
+
+  useEffect(() => {
+    animate(pct)
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current) }
+  }, [pct, animate])
+
+  // Find active segment color
+  let activeColor = SEGMENTS[0].color
+  for (const seg of SEGMENTS) {
+    if (display >= seg.pct - 1) activeColor = seg.color
+  }
+
   return (
-    <div style={{
-      width: "100%",
-      height: 32,
-      background: "#000",
-      border: "3px solid #fff",
-      position: "relative",
-      overflow: "hidden",
-    }}>
-      <div style={{
-        width: `${pct}%`,
-        height: "100%",
-        background: "#fff",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        transition: running ? "width 0.8s ease" : "none",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        paddingRight: pct > 10 ? 8 : 0,
-      }} />
-      <div style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        fontWeight: "bold",
-        fontSize: "0.9rem",
-        color: pct > 50 ? "#000" : "#fff",
-        mixBlendMode: "difference",
-        pointerEvents: "none",
-        userSelect: "none",
-      }}>
-        {pct}%
+    <div style={{ width: "100%", userSelect: "none" }}>
+      {/* Segment labels */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+        {SEGMENTS.map((seg) => {
+          const reached = display >= seg.pct - 1
+          return (
+            <div key={seg.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: reached ? seg.color : "#2a2a2a",
+                boxShadow: reached ? `0 0 6px ${seg.color}` : "none",
+                transition: "background 0.4s, box-shadow 0.4s",
+              }} />
+              <span style={{ fontSize: 10, color: reached ? seg.color : "#444", transition: "color 0.4s", whiteSpace: "nowrap" }}>
+                {seg.label}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Progress track */}
+      <div style={{ width: "100%", height: 10, background: "#1a1a1a", borderRadius: 999, overflow: "hidden", border: "1px solid #2a2a2a" }}>
+        <div style={{
+          height: "100%",
+          width: `${display}%`,
+          background: `linear-gradient(90deg, #818cf8, ${activeColor})`,
+          borderRadius: 999,
+          transition: "width 0.1s linear",
+          boxShadow: `0 0 8px ${activeColor}88`,
+        }} />
+      </div>
+
+      {/* Percentage */}
+      <div style={{ textAlign: "center", marginTop: 6, fontSize: 12, color: activeColor, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+        {Math.round(display)}%
       </div>
     </div>
   )
@@ -208,7 +250,7 @@ function UpdatePanel() {
 
       {/* Progress bar */}
       {showProgress && (
-        <ProgressBar pct={lastSuccess ? 100 : progress} running={running} />
+        <SegmentedProgress pct={lastSuccess ? 100 : progress} />
       )}
 
       {/* Error */}
