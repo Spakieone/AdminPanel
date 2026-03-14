@@ -1,1 +1,0 @@
-import{j as t}from"./chart-vendor-CkoAX-yw.js";import r from"./Settings-O0TLkN-0.js";import"./react-vendor-CgeT7Z0k.js";import"./index-tlyJO82E.js";import"./ConfirmModal-C_PV5_UY.js";import"./DarkSelect-D9c5hPOD.js";import"./GlassTabs-BEdbvVOY.js";function a(){return t.jsx(r,{})}export{a as default};

@@ -146,6 +146,7 @@ AUTH_TOKENS_FILE = DATA_DIR / ".auth_tokens.json"
 PANEL_USERS_DB_FILE = DATA_DIR / "panel_users.sqlite"
 NODES_DB_FILE = DATA_DIR / "nodes.sqlite"
 VIOLATIONS_DB_FILE = DATA_DIR / "violations.sqlite"
+_AGENT_SECRET_KEY = os.environ.get("AGENT_SECRET_KEY", "")
 
 BOT_PROFILES_FILE = DATA_DIR / "bot_profiles.json"
 MONITORING_SETTINGS_FILE = DATA_DIR / "monitoring_settings.json"

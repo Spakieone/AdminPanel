@@ -55,6 +55,10 @@ backend/.venv/
 node_modules/
 frontend/node_modules/
 
+# Build output
+frontend/dist/
+frontend/dist-lk/
+
 # IDE
 .idea/
 .vscode/
