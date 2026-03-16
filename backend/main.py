@@ -7709,6 +7709,22 @@ async def _lifespan(app_: FastAPI):
         except Exception as e:
             logger.warning("[INIT] failed to ensure DATA_DIR: %s", str(e) or type(e).__name__)
 
+        # Sync VERSION from repo root → data/version.json on every startup
+        try:
+            _repo_version_file = PROJECT_ROOT / "VERSION"
+            if _repo_version_file.exists():
+                _repo_ver = _repo_version_file.read_text().strip()
+                if _repo_ver:
+                    _cur = _cached_read_json(VERSION_FILE, {"version": "0.0.0", "channel": "release"}, ttl_seconds=0)
+                    if _cur.get("version") != _repo_ver:
+                        _cur["version"] = _repo_ver
+                        _cur.setdefault("channel", "release")
+                        _cur["release_date"] = time.strftime("%Y-%m-%d")
+                        _write_json(VERSION_FILE, _cur)
+                        logger.info("[INIT] updated version.json to %s", _repo_ver)
+        except Exception as e:
+            logger.warning("[INIT] failed to sync VERSION: %s", str(e) or type(e).__name__)
+
         # In tests / CI we must not start infinite background loops.
         if os.getenv("ADMINPANEL_DISABLE_BACKGROUND_LOOPS", "0").lower() in ("1", "true", "yes", "on"):
             logger.info("[MONITORING] background loops disabled by ADMINPANEL_DISABLE_BACKGROUND_LOOPS=1")

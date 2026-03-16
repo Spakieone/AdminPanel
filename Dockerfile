@@ -30,6 +30,9 @@ RUN apt-get update \
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r ./backend/requirements.txt
 
+# Version file
+COPY VERSION ./VERSION
+
 # Backend source
 COPY backend/ ./backend/
 
