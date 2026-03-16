@@ -34,12 +34,12 @@ FastAPI · React + Vite · Docker
 ## Быстрый старт
 
 ```bash
-git clone https://github.com/OWNER/AdminPanel.git /root/adminpanel
+git clone https://github.com/Spakieone/AdminPanel.git /root/adminpanel
 cd /root/adminpanel
 docker compose up -d --build
 ```
 
-Панель доступна: `http://IP_СЕРВЕРА:8888/webpanel/`
+Панель доступна через reverse proxy: `https://ваш-домен/webpanel/`
 
 ---
 
@@ -57,10 +57,8 @@ docker compose up -d --build
 
 ## Установка
 
-### Вариант 1: Автоматическая
-
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/AdminPanel/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Spakieone/AdminPanel/main/scripts/install.sh)
 ```
 
 Скрипт автоматически:
@@ -71,27 +69,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/AdminPanel/main/script
 - Запустит панель
 - Покажет логин и пароль для первого входа
 
-### Вариант 2: Ручная
-
-```bash
-# 1. Клонировать
-git clone https://github.com/OWNER/AdminPanel.git /root/adminpanel
-cd /root/adminpanel
-
-# 2. Создать .env
-echo "HOST_PROJECT_DIR=/root/adminpanel" > .env
-
-# 3. Создать директорию данных
-mkdir -p data
-
-# 4. Собрать и запустить
-docker compose up -d --build
-
-# 5. Проверить логи
-docker logs adminpanel --tail 20
-```
-
-### Вариант 3: Готовый образ (GHCR)
+### Готовый образ (GHCR)
 
 ```bash
 cd /root/adminpanel

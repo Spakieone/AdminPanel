@@ -3,7 +3,7 @@
 # AdminPanel — Installation from scratch
 # ============================================================
 # Usage:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/AdminPanel/main/scripts/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/Spakieone/AdminPanel/main/scripts/install.sh)
 # or:
 #   bash scripts/install.sh
 #

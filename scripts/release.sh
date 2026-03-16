@@ -17,7 +17,7 @@ warn() { echo -e "${Y}[!]${N} $*"; }
 err()  { echo -e "${R}[✗]${N} $*"; exit 1; }
 step() { echo -e "\n${B}━━ $*${N}"; }
 
-REPO="${ADMINPANEL_GITHUB_REPO:-OWNER/AdminPanel}"
+REPO="${ADMINPANEL_GITHUB_REPO:-Spakieone/AdminPanel}"
 BRANCH="main"
 
 echo ""
