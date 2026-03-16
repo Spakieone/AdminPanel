@@ -194,6 +194,10 @@ fi
 mkdir -p "$INSTALL_DIR/data"
 ok "Директория данных готова"
 
+# Запомним, есть ли уже учётные данные (для вывода пароля в конце)
+CREDENTIALS_EXISTED="no"
+[[ -f "$INSTALL_DIR/data/auth_credentials.json" ]] && CREDENTIALS_EXISTED="yes"
+
 # ── 6. Сборка и запуск ───────────────────────────────
 step "Сборка Docker-образа"
 
@@ -448,6 +452,17 @@ if [[ -n "$INIT_PASSWORD" ]]; then
   echo "  Логин:  admin"
   echo -e "  Пароль: ${G}${INIT_PASSWORD}${N}"
   echo -e "  ${R}Смените пароль после первого входа!${N}"
+  echo ""
+elif [[ "$CREDENTIALS_EXISTED" == "yes" ]]; then
+  echo -e "  ${C}Данные для входа сохранены от предыдущей установки.${N}"
+  echo "  Если забыли пароль:"
+  echo "    docker exec -it adminpanel python3 admin_cli.py password"
+  echo ""
+else
+  echo -e "  ${Y}Данные для входа:${N}"
+  echo "  Логин:  admin"
+  echo "  Пароль можно найти в логах:"
+  echo "    docker logs adminpanel 2>&1 | grep Password"
   echo ""
 fi
 echo "  Полезные команды:"
