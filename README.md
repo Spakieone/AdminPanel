@@ -193,45 +193,28 @@ docker compose restart
 
 ## Удаление
 
-### Полное удаление (панель + данные)
-
 ```bash
-cd /root/adminpanel
-docker compose down --rmi local    # остановить и удалить образ
-cd ~
-rm -rf /root/adminpanel            # удалить все файлы и данные
+bash <(curl -fsSL https://raw.githubusercontent.com/Spakieone/AdminPanel/main/scripts/uninstall.sh)
 ```
 
-### Удаление с сохранением данных
+Скрипт предложит сделать бэкап, остановит контейнер, удалит конфиг reverse proxy (Caddy/Nginx) и файлы.
+
+### Ручное удаление
 
 ```bash
 cd /root/adminpanel
 
-# Сначала сделать бэкап
+# Бэкап (опционально)
 tar -czf ~/adminpanel_backup_$(date +%Y%m%d_%H%M%S).tar.gz -C data .
 
-# Удалить
+# Остановить и удалить
 docker compose down --rmi local
 cd ~
 rm -rf /root/adminpanel
-```
 
-Бэкап `data/` можно восстановить при повторной установке.
-
-### Удаление reverse proxy
-
-**Caddy:**
-
-```bash
-# Убрать блоки из Caddyfile и перезагрузить
-sudo systemctl reload caddy
-```
-
-**Nginx:**
-
-```bash
-sudo rm -f /etc/nginx/sites-enabled/adminpanel
-sudo rm -f /etc/nginx/sites-available/adminpanel
+# Caddy — удалить блоки из /etc/caddy/Caddyfile и: sudo systemctl reload caddy
+# Nginx:
+sudo rm -f /etc/nginx/sites-enabled/adminpanel /etc/nginx/sites-available/adminpanel
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
