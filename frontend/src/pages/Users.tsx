@@ -1265,7 +1265,8 @@ export default function Users({
           </div>
         ) : viewMode === 'banned' ? (
           <div className="tab-content-enter">
-            <div className="table-wrapper">
+            {/* Desktop table */}
+            <div className="hidden md:block table-wrapper">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -1315,12 +1316,52 @@ export default function Users({
                 </tbody>
               </table>
             </div>
-            
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-2 mt-2">
+              {(paginatedData as BannedUser[]).map((user) => {
+                const endText = user.is_permanent ? 'Навсегда' : user.expires_at ? formatDateForBans(user.expires_at) : '—'
+                const badge = user.is_permanent ? 'failed' : user.expires_at ? 'pending' : 'processing'
+                return (
+                  <div key={user.tg_id} className="glass-table p-3">
+                    <div className="flex items-start justify-between mb-2 gap-2">
+                      <div className="flex-1">
+                        <div className="text-primary text-base font-semibold">{user.username ? `@${user.username}` : `TG ${user.tg_id}`}</div>
+                        <div className="text-muted text-sm mt-0.5 inline-flex items-center gap-2">
+                          <span className="text-dim">TG</span>
+                          <CopyText
+                            text={String(user.tg_id)}
+                            showToast={false}
+                            className="inline-flex items-center gap-1 text-[12px] font-mono text-secondary hover:text-primary transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <span className={`status-badge ${badge}`}>{endText}</span>
+                    </div>
+                    {user.reason && (
+                      <div className="text-sm mb-2">
+                        <span className="text-muted">Причина:</span>
+                        <span className="text-dim ml-1">{user.reason}</span>
+                      </div>
+                    )}
+                    <button
+                      className="card-btn danger w-full mt-1"
+                      type="button"
+                      onClick={() => setDeleteConfirm({ isOpen: true, user, key: null })}
+                    >
+                      Разбанить
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+
             <Pagination />
           </div>
         ) : viewMode === 'users' ? (
           <div className="tab-content-enter">
-            <div className="table-wrapper">
+            {/* Desktop table */}
+            <div className="hidden md:block table-wrapper">
               <table className="data-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                 <colgroup>
                   <col style={{ width: '35%' }} />
@@ -1405,12 +1446,55 @@ export default function Users({
               </table>
             </div>
 
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-2 mt-2">
+              {(paginatedData as User[]).map((user) => {
+                const src = formatUserSource(user)
+                const sourceKey = src.code || src.label
+                const srcStyle = getProviderColor(sourceKey)
+                return (
+                  <div
+                    key={user.tg_id}
+                    className="glass-table p-3 cursor-pointer"
+                    role="button"
+                    onClick={() => setSelectedUser(user.tg_id)}
+                  >
+                    <div className="flex items-start justify-between mb-2 gap-2">
+                      <div className="flex-1">
+                        <div className="text-primary text-base font-semibold">{user.username ? `@${user.username}` : `TG ${user.tg_id}`}</div>
+                        <div className="text-muted text-sm mt-0.5 inline-flex items-center gap-2">
+                          <span className="text-dim">TG</span>
+                          <CopyText
+                            text={String(user.tg_id)}
+                            showToast={false}
+                            className="inline-flex items-center gap-1 text-[12px] font-mono text-secondary hover:text-primary transition-colors"
+                          />
+                          {(user.first_name || user.last_name) && (
+                            <span className="text-dim">{String(`${user.first_name || ''} ${user.last_name || ''}`).trim()}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        className="status-badge source-badge shrink-0"
+                        style={{ background: srcStyle.bg, color: srcStyle.color, ['--badge-dot' as any]: srcStyle.dot }}
+                      >
+                        {src.code ? <span className="font-mono">{src.code}</span> : src.label}
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted">
+                      Регистрация: <span className="text-dim">{formatDate(user.created_at)}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
             <Pagination />
           </div>
         ) : (
           <>
 
-            <div className="table-wrapper">
+            <div className="hidden md:block table-wrapper">
               <table className="data-table">
                 <thead>
                   <tr>

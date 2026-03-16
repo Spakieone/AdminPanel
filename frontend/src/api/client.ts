@@ -600,6 +600,8 @@ export type LkProfile = {
         brand_title?: string
         domain?: string
         support_url?: string
+        news_url?: string
+        terms_url?: string
     }
 }
 

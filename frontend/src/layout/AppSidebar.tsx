@@ -160,10 +160,20 @@ function checkActive(path: string, loc: { pathname: string; search: string }) {
 
 /* ---- Component ---- */
 const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
   const location = useLocation();
   const [panelTitle, setPanelTitle] = useState("Panel");
   const expanded = isExpanded || isHovered || isMobileOpen;
+
+  // Auto-close mobile sidebar on navigation
+  const prevPath = useRef(location.pathname + location.search);
+  useEffect(() => {
+    const cur = location.pathname + location.search;
+    if (prevPath.current !== cur && isMobileOpen) {
+      toggleMobileSidebar();
+    }
+    prevPath.current = cur;
+  }, [location.pathname, location.search]);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";

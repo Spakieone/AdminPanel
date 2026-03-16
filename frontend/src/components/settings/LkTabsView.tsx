@@ -55,6 +55,8 @@ function ProfileForm({ profile, botProfiles, allProfiles, onSaved, onDeleted }: 
 
   const [lkLoading, setLkLoading] = useState(false)
   const [supportUrl, setSupportUrl] = useState('')
+  const [newsUrl, setNewsUrl] = useState('')
+  const [termsUrl, setTermsUrl] = useState('')
   const [enabledGroups, setEnabledGroups] = useState<string[]>([])
   const [enabledProviders, setEnabledProviders] = useState<string[]>([])
   const [inviteTabMode, setInviteTabMode] = useState('auto')
@@ -101,6 +103,8 @@ function ProfileForm({ profile, botProfiles, allProfiles, onSaved, onDeleted }: 
         const s = await settingsRes.json()
         const d: LkSettings = s?.data ?? s
         setSupportUrl(String(d.support_url || ''))
+        setNewsUrl(String((d as any).news_url || ''))
+        setTermsUrl(String((d as any).terms_url || ''))
         setEnabledGroups(Array.isArray(d.enabled_tariff_group_codes) ? d.enabled_tariff_group_codes : [])
         setEnabledProviders(Array.isArray(d.enabled_payment_providers) ? d.enabled_payment_providers.map((x: string) => x.toUpperCase()) : [])
         setInviteTabMode(String(d.invite_tab_mode || 'auto'))
@@ -171,6 +175,8 @@ function ProfileForm({ profile, botProfiles, allProfiles, onSaved, onDeleted }: 
           body: JSON.stringify({
             brand_title: payload.settings.brand_title,
             support_url: supportUrl.trim(),
+            news_url: newsUrl.trim(),
+            terms_url: termsUrl.trim(),
             enabled_tariff_group_codes: enabledGroups,
             enabled_payment_providers: enabledProviders,
             invite_tab_mode: inviteTabMode,
@@ -259,6 +265,14 @@ function ProfileForm({ profile, botProfiles, allProfiles, onSaved, onDeleted }: 
               <div>
                 <label className="block text-xs font-medium text-muted mb-1">Ссылка на поддержку</label>
                 <input value={supportUrl} onChange={e => setSupportUrl(e.target.value)} placeholder="https://t.me/support" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Ссылка на новости</label>
+                <input value={newsUrl} onChange={e => setNewsUrl(e.target.value)} placeholder="https://t.me/news" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Ссылка на правила</label>
+                <input value={termsUrl} onChange={e => setTermsUrl(e.target.value)} placeholder="https://example.com/terms" className={inputCls} />
               </div>
               {availableGroups.length > 0 && (
                 <div>

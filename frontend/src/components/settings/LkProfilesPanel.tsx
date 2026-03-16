@@ -9,7 +9,7 @@ type BotProfile = {
   name: string
 }
 
-const EMPTY = { name: '', brandTitle: 'No-touch', domain: '', botProfileId: '', supportUrl: '' }
+const EMPTY = { name: '', brandTitle: 'No-touch', domain: '', botProfileId: '', supportUrl: '', newsUrl: '', termsUrl: '' }
 const EMPTY_SMTP = { host: '', port: '587', user: '', pass: '', from: '' }
 
 export default function LkProfilesPanel({ botProfiles }: { botProfiles: BotProfile[] }) {
@@ -70,6 +70,8 @@ export default function LkProfilesPanel({ botProfiles }: { botProfiles: BotProfi
       domain: String((p.settings as any)?.domain || (Array.isArray(legacyDomains) ? legacyDomains[0] : '') || ''),
       botProfileId: String((p.botProfileIds || [])[0] || ''),
       supportUrl: String((p.settings as any)?.support_url || ''),
+      newsUrl: String((p.settings as any)?.news_url || ''),
+      termsUrl: String((p.settings as any)?.terms_url || ''),
     })
     void loadSmtp()
     setFlippedCardId(p.id)
@@ -96,7 +98,7 @@ export default function LkProfilesPanel({ botProfiles }: { botProfiles: BotProfi
       const payload = {
         name: n,
         botProfileIds: [botId],
-        settings: { brand_title: form.brandTitle.trim() || 'No-touch', domain: d, support_url: form.supportUrl.trim() },
+        settings: { brand_title: form.brandTitle.trim() || 'No-touch', domain: d, support_url: form.supportUrl.trim(), news_url: form.newsUrl.trim(), terms_url: form.termsUrl.trim() },
       }
       if (targetId) {
         await updateLkProfile(targetId, payload as any)
@@ -180,6 +182,18 @@ export default function LkProfilesPanel({ botProfiles }: { botProfiles: BotProfi
             <label className="block text-xs text-muted mb-1">Ссылка на поддержку</label>
             <input type="text" value={form.supportUrl} onChange={(e) => setForm({ ...form, supportUrl: e.target.value })}
               placeholder="https://t.me/support" autoComplete="off"
+              className="w-full px-3 py-1.5 text-sm bg-overlay-sm border border-default rounded-lg focus:outline-none focus:ring-1 focus:ring-accent-30 text-primary placeholder:text-faint" />
+          </div>
+          <div>
+            <label className="block text-xs text-muted mb-1">Ссылка на новости</label>
+            <input type="text" value={form.newsUrl} onChange={(e) => setForm({ ...form, newsUrl: e.target.value })}
+              placeholder="https://t.me/news" autoComplete="off"
+              className="w-full px-3 py-1.5 text-sm bg-overlay-sm border border-default rounded-lg focus:outline-none focus:ring-1 focus:ring-accent-30 text-primary placeholder:text-faint" />
+          </div>
+          <div>
+            <label className="block text-xs text-muted mb-1">Ссылка на правила</label>
+            <input type="text" value={form.termsUrl} onChange={(e) => setForm({ ...form, termsUrl: e.target.value })}
+              placeholder="https://example.com/terms" autoComplete="off"
               className="w-full px-3 py-1.5 text-sm bg-overlay-sm border border-default rounded-lg focus:outline-none focus:ring-1 focus:ring-accent-30 text-primary placeholder:text-faint" />
           </div>
           <div className="pt-1 border-t border-default">
@@ -269,6 +283,12 @@ export default function LkProfilesPanel({ botProfiles }: { botProfiles: BotProfi
                         <p><span className="text-muted">Бренд:</span> <span className="text-secondary">{String(p.settings?.brand_title || '—')}</span></p>
                         {(p.settings as any)?.support_url && (
                           <p><span className="text-muted">Поддержка:</span> <span className="text-secondary truncate block">{String((p.settings as any).support_url)}</span></p>
+                        )}
+                        {(p.settings as any)?.news_url && (
+                          <p><span className="text-muted">Новости:</span> <span className="text-secondary truncate block">{String((p.settings as any).news_url)}</span></p>
+                        )}
+                        {(p.settings as any)?.terms_url && (
+                          <p><span className="text-muted">Правила:</span> <span className="text-secondary truncate block">{String((p.settings as any).terms_url)}</span></p>
                         )}
                       </div>
                       <div className="flex gap-2 mt-3">

@@ -40,4 +40,4 @@ COPY --from=frontend_builder /app/frontend/dist-lk ./frontend/dist-lk
 EXPOSE 8888
 
 WORKDIR /app/backend
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8888", "--workers", "4"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8888"]

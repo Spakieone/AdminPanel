@@ -46,12 +46,10 @@ export default function LkLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-black text-white">
       <DotBackground />
 
-      {/* Top nav */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 z-50 pt-4">
+      {/* Desktop top nav */}
+      <div className="hidden md:block fixed top-0 left-1/2 -translate-x-1/2 z-50 pt-4">
         <div className="flex items-center gap-1 bg-white/5 border border-white/10 backdrop-blur-lg py-1 px-1 rounded-full shadow-lg">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
+          {navItems.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.url}
@@ -65,8 +63,7 @@ export default function LkLayout({ children }: { children: React.ReactNode }) {
               >
                 {({ isActive }) => (
                   <>
-                    <span className="relative z-10 hidden md:inline">{item.name}</span>
-                    <span className="relative z-10 md:hidden"><Icon size={18} strokeWidth={2.5} /></span>
+                    <span className="relative z-10">{item.name}</span>
                     {isActive && (
                       <motion.div
                         layoutId="nav-lamp"
@@ -84,8 +81,7 @@ export default function LkLayout({ children }: { children: React.ReactNode }) {
                   </>
                 )}
               </NavLink>
-            );
-          })}
+          ))}
           <button
             onClick={handleLogout}
             className="ml-1 text-white/30 hover:text-white/70 transition-colors p-2 rounded-full hover:bg-white/5"
@@ -96,8 +92,39 @@ export default function LkLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
+      {/* Mobile bottom nav */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-black/80 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <div className="flex items-center justify-around h-14 px-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.name}
+                to={item.url}
+                className={({ isActive }) =>
+                  cn(
+                    "flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg min-w-0",
+                    isActive ? "text-white" : "text-white/40"
+                  )
+                }
+              >
+                <Icon size={20} strokeWidth={2} />
+                <span className="text-[10px] leading-tight truncate max-w-[56px]">{item.name}</span>
+              </NavLink>
+            );
+          })}
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center gap-0.5 px-2 py-1.5 text-white/30"
+          >
+            <LogOut size={20} strokeWidth={2} />
+            <span className="text-[10px] leading-tight">Выход</span>
+          </button>
+        </div>
+      </nav>
+
       {/* Content */}
-      <div className="relative z-10 pt-24 pb-12 px-4 max-w-2xl mx-auto">
+      <div className="relative z-10 pt-6 pb-20 md:pt-24 md:pb-12 px-4 max-w-2xl mx-auto">
         {children}
       </div>
     </div>

@@ -677,6 +677,8 @@ def _lk_profile_settings_out(p: Dict[str, Any]) -> Dict[str, Any]:
         "brand_title": str(s.get("brand_title") or ""),
         "domain": _lk_get_profile_domain(p),
         "support_url": str(s.get("support_url") or ""),
+        "news_url": str(s.get("news_url") or ""),
+        "terms_url": str(s.get("terms_url") or ""),
         "enabled_tariff_group_codes": s.get("enabled_tariff_group_codes") or [],
         "enabled_payment_providers": s.get("enabled_payment_providers") or [],
         "invite_tab_mode": str(s.get("invite_tab_mode") or "auto"),
@@ -1457,7 +1459,7 @@ api = APIRouter()
 
 
 VERSION_FILE = DATA_DIR / "version.json"
-VERSION_CHECK_URL = os.environ.get("ADMINPANEL_VERSION_CHECK_URL", "")
+VERSION_CHECK_URL = os.environ.get("ADMINPANEL_VERSION_CHECK_URL", "https://pocomacho.ru/solonetbot/modules/")
 
 
 def _get_current_version() -> Dict[str, Any]:
@@ -1512,7 +1514,9 @@ async def check_version_update() -> Dict[str, Any]:
         "update_url": VERSION_CHECK_URL,
         "error": None,
     }
-    
+    if not VERSION_CHECK_URL:
+        return result
+
     try:
         timeout = httpx.Timeout(connect=10.0, read=15.0, write=10.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
@@ -1592,7 +1596,7 @@ async def check_version_update() -> Dict[str, Any]:
 
 
 GITHUB_PANEL_REPO = os.environ.get("ADMINPANEL_GITHUB_REPO", "Spakieone/AdminPanel")
-BOT_API_MODULE_CHECK_URL = os.environ.get("ADMINPANEL_BOT_API_CHECK_URL", "")
+BOT_API_MODULE_CHECK_URL = os.environ.get("ADMINPANEL_BOT_API_CHECK_URL", "https://pocomacho.ru/solonetbot/modules/")
 BOT_API_VERSION_FILE = Path("/root/bot/modules/api/version.json")
 
 
@@ -1663,6 +1667,8 @@ async def check_bot_api_version() -> Dict[str, Any]:
         "update_available": False,
         "error": None,
     }
+    if not BOT_API_MODULE_CHECK_URL:
+        return result
     try:
         timeout = httpx.Timeout(connect=10.0, read=15.0, write=10.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
@@ -1679,7 +1685,13 @@ async def check_bot_api_version() -> Dict[str, Any]:
                 result["error"] = "Не найден блок версий на странице"
                 return result
             modal_html = modal_match.group(0)
-            versions = re.findall(r'v(\d+\.\d+\.\d+(?:\.\d+)?)', modal_html, re.IGNORECASE)
+            # Parse only Release section (skip Dev)
+            release_match = re.search(
+                r'<div\s+class="versions-title">\s*Release\s*</div>\s*<ul\s+class="list-versions">([\s\S]*?)</ul>',
+                modal_html, re.IGNORECASE,
+            )
+            release_html = release_match.group(1) if release_match else modal_html
+            versions = re.findall(r'v(\d+\.\d+\.\d+(?:\.\d+)?)', release_html, re.IGNORECASE)
             if not versions:
                 result["error"] = "Версии не найдены на странице"
                 return result
@@ -1690,7 +1702,8 @@ async def check_bot_api_version() -> Dict[str, Any]:
                     parts.append("0")
                 return tuple(int(p) for p in parts[:4])
 
-            latest = sorted(versions, key=_ver_tuple)[-1]
+            # First version in the list is the newest (site sorts newest-first)
+            latest = versions[0]
             result["latest_version"] = latest
             try:
                 result["update_available"] = _ver_tuple(latest) > _ver_tuple(current_version)
@@ -3476,6 +3489,8 @@ def lk_public_settings(request: Request) -> Dict[str, Any]:
         "ok": True,
         "brand_title": str(settings.get("brand_title") or "VPN").strip() or "VPN",
         "support_url": str(settings.get("support_url") or "").strip(),
+        "news_url": str(settings.get("news_url") or "").strip(),
+        "terms_url": str(settings.get("terms_url") or "").strip(),
         "enabled_tariff_group_codes": settings.get("enabled_tariff_group_codes") or [],
         "enabled_payment_providers": settings.get("enabled_payment_providers") or [],
     }
@@ -5880,7 +5895,7 @@ async def lk_settings_patch_for_bot_profile(profile_id: str, request: Request, s
                     cur = p.get("settings") or {}
                     if not isinstance(cur, dict):
                         cur = {}
-                    for key in ("brand_title", "support_url", "enabled_tariff_group_codes", "enabled_payment_providers", "invite_tab_mode"):
+                    for key in ("brand_title", "support_url", "news_url", "terms_url", "enabled_tariff_group_codes", "enabled_payment_providers", "invite_tab_mode"):
                         if key in payload:
                             cur[key] = payload[key]
                     p["settings"] = cur

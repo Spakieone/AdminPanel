@@ -417,8 +417,61 @@ export default function RwUsers() {
         )}
       </div>
 
-      {/* Таблица */}
-      <div className="rounded-2xl border border-default bg-overlay-xs overflow-hidden">
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-default bg-overlay-xs p-3 animate-pulse space-y-2">
+              <div className="flex justify-between"><div className="h-4 w-28 bg-overlay-md rounded" /><div className="h-5 w-16 bg-overlay-md rounded-full" /></div>
+              <div className="h-6 w-full bg-overlay-md rounded-full" />
+              <div className="space-y-1.5"><div className="h-3 w-full bg-overlay-md rounded" /><div className="h-3 w-3/4 bg-overlay-md rounded" /></div>
+            </div>
+          ))
+        ) : pagedUsers.length === 0 ? (
+          <div className="rounded-2xl border border-default bg-overlay-xs p-8 text-center text-muted text-sm">
+            {search || statusFilter ? 'Ничего не найдено' : 'Нет пользователей'}
+          </div>
+        ) : pagedUsers.map((u, i) => {
+          const nodeInfo = u.lastNodeUuid ? nodeMap[u.lastNodeUuid] || null : null
+          return (
+            <div key={u.uuid} className="rounded-2xl border border-default bg-overlay-xs p-3" style={{ animation: 'fadeInUp 0.25s ease-out both', animationDelay: `${i * 0.03}s` }}>
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  <div className="font-medium text-primary text-sm truncate">{u.username}</div>
+                  {u.telegramId && <div className="text-xs text-muted">TG: {u.telegramId}</div>}
+                </div>
+                {statusBadge(u.status)}
+              </div>
+              <div className="mb-2">
+                <TrafficBar used={u.usedTraffic} limit={u.trafficLimitBytes} status={u.status} />
+              </div>
+              <div className="space-y-1.5 text-xs">
+                {nodeInfo && (
+                  <div className="flex justify-between">
+                    <span className="text-muted">Нода</span>
+                    <span className="flex items-center gap-1.5 text-secondary"><FlagIcon code={nodeInfo.countryCode} /><span className="truncate max-w-[140px]">{nodeInfo.name}</span></span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted">Активность</span>
+                  <OnlineIndicator onlineAt={u.onlineAt} />
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Истекает</span>
+                  <span className="text-secondary">{formatDate(u.expireAt)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Создан</span>
+                  <span className="text-secondary">{formatDate(u.createdAt)}</span>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-2xl border border-default bg-overlay-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full" style={{ tableLayout: 'fixed' }}>
             <colgroup>
@@ -506,48 +559,49 @@ export default function RwUsers() {
           </table>
         </div>
 
-        {/* Пагинация */}
-        {totalPages > 1 && (
-          <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-default">
-            <div className="flex items-center gap-3 text-xs text-muted">
-              <span>{from}–{to} из {totalCount.toLocaleString()}</span>
-              <DarkSelect
-                value={String(perPage)}
-                onChange={v => handlePerPage(Number(v))}
-                groups={[{ options: [10, 25, 50, 100].map(n => ({ value: String(n), label: `${n} / стр.` })) }]}
-                buttonClassName="bg-overlay-sm border border-default rounded-lg px-2 py-1 text-primary text-xs"
-              />
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-default text-muted hover:text-primary disabled:opacity-30 transition-colors text-sm"
-              >←</button>
-              {getPageNumbers(page, totalPages).map((p, i) =>
-                p === '...' ? (
-                  <span key={`dots-${i}`} className="w-8 h-8 flex items-center justify-center text-muted text-xs">…</span>
-                ) : (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-colors ${
-                      page === p
-                        ? 'bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30'
-                        : 'border border-default text-muted hover:text-primary'
-                    }`}
-                  >{p}</button>
-                )
-              )}
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-default text-muted hover:text-primary disabled:opacity-30 transition-colors text-sm"
-              >→</button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Пагинация */}
+      {totalPages > 1 && (
+        <div className="rounded-2xl border border-default bg-overlay-xs px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 mt-2 md:mt-0 md:rounded-none md:rounded-b-2xl md:border-t md:border-x-0 md:border-b-0 md:bg-transparent">
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <span>{from}–{to} из {totalCount.toLocaleString()}</span>
+            <DarkSelect
+              value={String(perPage)}
+              onChange={v => handlePerPage(Number(v))}
+              groups={[{ options: [10, 25, 50, 100].map(n => ({ value: String(n), label: `${n} / стр.` })) }]}
+              buttonClassName="bg-overlay-sm border border-default rounded-lg px-2 py-1 text-primary text-xs"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-default text-muted hover:text-primary disabled:opacity-30 transition-colors text-sm"
+            >←</button>
+            {getPageNumbers(page, totalPages).map((p, i) =>
+              p === '...' ? (
+                <span key={`dots-${i}`} className="w-8 h-8 flex items-center justify-center text-muted text-xs">…</span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-colors ${
+                    page === p
+                      ? 'bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30'
+                      : 'border border-default text-muted hover:text-primary'
+                  }`}
+                >{p}</button>
+              )
+            )}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-default text-muted hover:text-primary disabled:opacity-30 transition-colors text-sm"
+            >→</button>
+          </div>
+        </div>
+      )}
 
     </div>
   )

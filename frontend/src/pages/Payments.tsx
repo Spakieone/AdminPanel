@@ -303,57 +303,98 @@ export default function Payments() {
                 <p className="text-muted text-center py-6 sm:py-8 text-sm sm:text-base">Платежи не найдены</p>
               </div>
             ) : (
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>TG ID</th>
-                      <th>Сумма</th>
-                      <th>Провайдер</th>
-                      <th>Статус</th>
-                      <th>Дата</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedPayments.map((payment, index) => {
-                      const provider = getPaymentProvider(payment)
-                      const providerStyle = getProviderColor(provider)
-                      const st = String(payment.status || 'pending').toLowerCase()
-                      const statusBadge = st.includes('success') || st.includes('paid') ? 'completed' : st.includes('pending') ? 'pending' : st.includes('process') ? 'processing' : 'failed'
-                      return (
-                        <tr key={payment.id || payment.payment_id || index}>
-                          <td>{payment.id || payment.payment_id || '—'}</td>
-                          <td>
-                            {payment.tg_id ? (
-                              <CopyText
-                                text={String(payment.tg_id)}
-                                showToast={false}
-                                className="inline-flex items-center gap-1 text-[12px] font-mono text-secondary hover:text-primary transition-colors"
-                              />
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                          <td className="table-amount">{Number(payment.amount || 0).toLocaleString('ru-RU')} ₽</td>
-                          <td>
-                            <span
-                              className="status-badge"
-                              style={{ background: providerStyle.bg, color: providerStyle.color, verticalAlign: 'middle' }}
-                            >
-                              {provider}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`status-badge ${statusBadge}`}>{payment.status || 'pending'}</span>
-                          </td>
-                          <td>{formatDate(payment.created_at)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                {/* Mobile cards */}
+                <div className="md:hidden space-y-2">
+                  {paginatedPayments.map((payment, index) => {
+                    const provider = getPaymentProvider(payment)
+                    const providerStyle = getProviderColor(provider)
+                    const st = String(payment.status || 'pending').toLowerCase()
+                    const statusCls = st.includes('success') || st.includes('paid') ? 'completed' : st.includes('pending') ? 'pending' : st.includes('process') ? 'processing' : 'failed'
+                    return (
+                      <div key={payment.id || payment.payment_id || index} className="rounded-2xl border border-default bg-overlay-xs p-3" style={{ animation: 'fadeInUp 0.25s ease-out both', animationDelay: `${index * 0.03}s` }}>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="text-lg font-semibold text-primary">{Number(payment.amount || 0).toLocaleString('ru-RU')} ₽</div>
+                          <span className={`status-badge ${statusCls}`}>{payment.status || 'pending'}</span>
+                        </div>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-muted">ID</span>
+                            <span className="text-secondary font-mono">{payment.id || payment.payment_id || '—'}</span>
+                          </div>
+                          {payment.tg_id && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted">TG ID</span>
+                              <CopyText text={String(payment.tg_id)} showToast={false} className="inline-flex items-center gap-1 text-[12px] font-mono text-secondary hover:text-primary transition-colors" />
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted">Провайдер</span>
+                            <span className="status-badge" style={{ background: providerStyle.bg, color: providerStyle.color }}>{provider}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted">Дата</span>
+                            <span className="text-secondary">{formatDate(payment.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block table-wrapper">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>TG ID</th>
+                        <th>Сумма</th>
+                        <th>Провайдер</th>
+                        <th>Статус</th>
+                        <th>Дата</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedPayments.map((payment, index) => {
+                        const provider = getPaymentProvider(payment)
+                        const providerStyle = getProviderColor(provider)
+                        const st = String(payment.status || 'pending').toLowerCase()
+                        const statusBadge = st.includes('success') || st.includes('paid') ? 'completed' : st.includes('pending') ? 'pending' : st.includes('process') ? 'processing' : 'failed'
+                        return (
+                          <tr key={payment.id || payment.payment_id || index}>
+                            <td>{payment.id || payment.payment_id || '—'}</td>
+                            <td>
+                              {payment.tg_id ? (
+                                <CopyText
+                                  text={String(payment.tg_id)}
+                                  showToast={false}
+                                  className="inline-flex items-center gap-1 text-[12px] font-mono text-secondary hover:text-primary transition-colors"
+                                />
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td className="table-amount">{Number(payment.amount || 0).toLocaleString('ru-RU')} ₽</td>
+                            <td>
+                              <span
+                                className="status-badge"
+                                style={{ background: providerStyle.bg, color: providerStyle.color, verticalAlign: 'middle' }}
+                              >
+                                {provider}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`status-badge ${statusBadge}`}>{payment.status || 'pending'}</span>
+                            </td>
+                            <td>{formatDate(payment.created_at)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
 
             {/* Пагинация снизу */}

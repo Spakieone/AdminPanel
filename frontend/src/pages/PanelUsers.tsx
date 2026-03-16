@@ -785,7 +785,7 @@ export default function PanelUsers({ embedded = false }: { embedded?: boolean } 
                           </td>
                           {/* Actions */}
                           <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center justify-end gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setSelectedUser(u); }}
@@ -1152,7 +1152,41 @@ export default function PanelUsers({ embedded = false }: { embedded?: boolean } 
                         </div>
                       ) : null}
 
-                      <div className="rounded-xl border border-default overflow-hidden">
+                      {/* Mobile RBAC cards */}
+                      <div className="md:hidden space-y-3">
+                        {rbacResources.map((res) => {
+                          const rk = String(res.key)
+                          return (
+                            <div key={rk} className="rounded-xl border border-default bg-overlay-xs p-3">
+                              <div className="font-semibold text-secondary text-sm mb-2">{String(res.title || rk)}</div>
+                              <div className="grid grid-cols-4 gap-2">
+                                {RBAC_ACTIONS_4.map((a) => {
+                                  const key = `${rk}:${a}`
+                                  const checked = roleDraftPerms.has(key)
+                                  const disabled = selectedRoleIsSuperAdmin || savingRole
+                                  return (
+                                    <button
+                                      key={key}
+                                      type="button"
+                                      onClick={() => togglePerm(rk, a)}
+                                      disabled={disabled}
+                                      className={`flex flex-col items-center gap-1 py-2 rounded-lg border disabled:opacity-60 disabled:cursor-not-allowed ${
+                                        checked ? 'bg-accent-15 border-accent-25' : 'bg-overlay-xs border-default'
+                                      }`}
+                                    >
+                                      <div className={`w-5 h-5 rounded border ${checked ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-transparent border-default'}`} />
+                                      <span className="text-[10px] text-muted">{RBAC_ACTION_LABEL[a]}</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Desktop RBAC table */}
+                      <div className="hidden md:block rounded-xl border border-default overflow-hidden">
                         <div className="overflow-x-auto">
                           <table className="min-w-[920px] w-full text-[15px]">
                             <thead className="bg-overlay-xs border-b border-default">
@@ -1304,7 +1338,45 @@ export default function PanelUsers({ embedded = false }: { embedded?: boolean } 
                 ) : auditItems.length === 0 ? (
                   <div className="p-4 text-sm text-muted">Лог пуст</div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                  {/* Mobile audit cards */}
+                  <div className="md:hidden space-y-2">
+                    {auditItems.map((it) => {
+                      const tsMs = Number(it.ts || 0) * 1000
+                      const dt = tsMs ? new Date(tsMs).toLocaleString() : '—'
+                      const target = it.target_type ? `${it.target_type}${it.target_id ? `:${it.target_id}` : ''}` : '—'
+                      const actionName = String(it.action || '—')
+                      const actionLabel = auditActionLabel(actionName)
+                      return (
+                        <div key={it.id} className="rounded-xl border border-default bg-overlay-xs p-3 text-sm">
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <span className="text-dim text-xs">{dt}</span>
+                            <button
+                              type="button"
+                              onClick={() => applyAuditFilters({ actor: auditActor, action: actionName })}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border shrink-0 ${auditActionBadgeClass(actionName)}`}
+                            >
+                              <span>{actionLabel}</span>
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1 mb-1">
+                            <span className="text-muted text-xs">Actor:</span>
+                            <button
+                              type="button"
+                              className="text-secondary font-semibold text-sm hover:underline underline-offset-2"
+                              onClick={() => applyAuditFilters({ actor: String(it.actor || ''), action: auditAction })}
+                            >
+                              {String(it.actor || '—')}
+                            </button>
+                          </div>
+                          <div className="text-dim font-mono text-xs truncate">{target}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Desktop audit table */}
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="min-w-[980px] w-full text-sm">
                       <thead className="bg-overlay-xs border-b border-default">
                         <tr>
@@ -1356,6 +1428,7 @@ export default function PanelUsers({ embedded = false }: { embedded?: boolean } 
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
                 <div className="px-3 py-3 border-t border-default flex items-center justify-between gap-2">
                   <button

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Send, Link2, Wallet, MessageCircle } from "lucide-react";
+import { User, Mail, Send, Link2, Wallet, MessageCircle, Newspaper, FileText } from "lucide-react";
 import LkLayout from "@/components/lk/LkLayout";
 import LkLoader from "@/components/lk/LkLoader";
 
@@ -47,6 +47,8 @@ export default function LkProfile() {
   const [loading, setLoading] = useState(true);
   const [botUsername, setBotUsername] = useState("");
   const [supportUrl, setSupportUrl] = useState("");
+  const [newsUrl, setNewsUrl] = useState("");
+  const [termsUrl, setTermsUrl] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
 
@@ -68,6 +70,8 @@ export default function LkProfile() {
       if (metaData?.ok) setBotUsername(metaData.bot_username || "");
       if (settingsData?.ok) {
         setSupportUrl(settingsData.support_url || "");
+        setNewsUrl(settingsData.news_url || "");
+        setTermsUrl(settingsData.terms_url || "");
         if (settingsData.brand_title) { document.title = settingsData.brand_title; try { localStorage.setItem('lk_brand_title', settingsData.brand_title); } catch(_){} }
       }
     };
@@ -178,19 +182,6 @@ export default function LkProfile() {
           )}
         </div>
 
-        {/* Support button */}
-        {supportUrl && (
-          <a
-            href={supportUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] p-4 text-sm text-white/70 hover:text-white transition-colors"
-          >
-            <MessageCircle size={16} />
-            Написать в поддержку
-          </a>
-        )}
-
         {/* Link Telegram */}
         {me && !me.telegram_tg_id && botUsername && (
           <div className="space-y-2">
@@ -204,6 +195,33 @@ export default function LkProfile() {
             </button>
             <div id="tg-link-container" className="flex justify-center" />
             {linkError && <div className="text-xs text-rose-400 text-center">{linkError}</div>}
+          </div>
+        )}
+
+        {/* Service links */}
+        {(supportUrl || newsUrl || termsUrl) && (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] divide-y divide-white/5">
+            {newsUrl && (
+              <a href={newsUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-3 p-4 text-sm text-white/70 hover:text-white hover:bg-white/[0.03] transition-colors">
+                <Newspaper size={16} className="shrink-0 text-white/40" />
+                Новости нашего сервиса
+              </a>
+            )}
+            {supportUrl && (
+              <a href={supportUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-3 p-4 text-sm text-white/70 hover:text-white hover:bg-white/[0.03] transition-colors">
+                <MessageCircle size={16} className="shrink-0 text-white/40" />
+                Техническая поддержка
+              </a>
+            )}
+            {termsUrl && (
+              <a href={termsUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-3 p-4 text-sm text-white/70 hover:text-white hover:bg-white/[0.03] transition-colors">
+                <FileText size={16} className="shrink-0 text-white/40" />
+                Правила и условия сервиса
+              </a>
+            )}
           </div>
         )}
 
