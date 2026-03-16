@@ -13,7 +13,7 @@
 # ============================================================
 set -euo pipefail
 
-REPO="${ADMINPANEL_GITHUB_REPO:-}"
+REPO="${ADMINPANEL_GITHUB_REPO:-Spakieone/AdminPanel}"
 INSTALL_DIR="${INSTALL_DIR:-/root/adminpanel}"
 
 G='\033[0;32m'; Y='\033[1;33m'; C='\033[0;36m'; R='\033[0;31m'; B='\033[1;34m'; N='\033[0m'
