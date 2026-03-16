@@ -58,7 +58,7 @@ admin.example.com {
     reverse_proxy localhost:8888
 }
 
-# Личный кабинет (опционально, если нужен отдельный домен)
+# Личный кабинет (отдельный домен для ЛК пользователей)
 lk.example.com {
     reverse_proxy localhost:8888
 }
@@ -100,7 +100,7 @@ server {
     client_max_body_size 50M;
 }
 
-# Личный кабинет (опционально)
+# Личный кабинет (отдельный домен для ЛК пользователей)
 server {
     listen 80;
     server_name lk.example.com;
