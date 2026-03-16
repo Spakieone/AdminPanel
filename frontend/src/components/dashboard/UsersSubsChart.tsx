@@ -1,6 +1,20 @@
 import Chart from 'react-apexcharts'
 import type { ApexOptions } from 'apexcharts'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+function useIsDark() {
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    obs.observe(document.documentElement, { attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
 
 interface UsersSubsChartProps {
   daily: any[]
@@ -27,6 +41,7 @@ function fmtMonthLabel(month: string) {
 }
 
 export default function UsersSubsChart({ daily, monthly, subDaily, subMonthly }: UsersSubsChartProps) {
+  const isDark = useIsDark()
   const [period, setPeriod] = useState<'daily' | 'monthly'>('daily')
   const rows = period === 'monthly' ? monthly.slice(-12) : daily.slice(-30)
   const categories = rows.map((r: any) =>
@@ -53,9 +68,9 @@ export default function UsersSubsChart({ daily, monthly, subDaily, subMonthly }:
     stroke: { curve: 'straight', width: [2, 2] },
     fill: { type: 'gradient', gradient: { opacityFrom: 0.55, opacityTo: 0 } },
     markers: { size: 0, strokeColors: '#fff', strokeWidth: 2, hover: { size: 6 } },
-    grid: { borderColor: 'rgba(255,255,255,0.06)', xaxis: { lines: { show: false } }, yaxis: { lines: { show: true } } },
+    grid: { borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)', xaxis: { lines: { show: false } }, yaxis: { lines: { show: true } } },
     dataLabels: { enabled: false },
-    tooltip: { theme: 'dark', enabled: true },
+    tooltip: { theme: isDark ? 'dark' : 'light', enabled: true },
     xaxis: {
       type: 'category',
       categories,
@@ -88,14 +103,14 @@ export default function UsersSubsChart({ daily, monthly, subDaily, subMonthly }:
           <button
             type="button"
             onClick={() => setPeriod('daily')}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${period === 'daily' ? 'bg-accent-10 text-[var(--accent)]' : 'text-muted bg-overlay-md'}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium border ${period === 'daily' ? 'bg-accent-10 text-[var(--accent)] border-[var(--accent)]' : 'text-muted bg-overlay-md border-transparent'}`}
           >
             30 дней
           </button>
           <button
             type="button"
             onClick={() => setPeriod('monthly')}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${period === 'monthly' ? 'bg-accent-10 text-[var(--accent)]' : 'text-muted bg-overlay-md'}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium border ${period === 'monthly' ? 'bg-accent-10 text-[var(--accent)] border-[var(--accent)]' : 'text-muted bg-overlay-md border-transparent'}`}
           >
             12 мес
           </button>

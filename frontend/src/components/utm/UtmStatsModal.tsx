@@ -110,7 +110,7 @@ export default function UtmStatsModal({
   const [period, setPeriod] = useState<'days' | 'months'>('days')
   const [daysRange, setDaysRange] = useState<30 | 90 | 180 | 365>(30)
   const [showTable, setShowTable] = useState(false)
-  const [showEmptyDays, setShowEmptyDays] = useState(false)
+  const [showEmptyDays, setShowEmptyDays] = useState(true)
   const [onlyPurchaseDays, setOnlyPurchaseDays] = useState(false)
 
   const loadStats = useCallback(async () => {
@@ -121,14 +121,38 @@ export default function UtmStatsModal({
       const config = await getBotConfigAsync()
       if (!config) throw new Error('Нет активного профиля. Создайте профиль в настройках.')
       
-      // Load both monthly and daily stats in parallel
+      // Load both monthly and daily stats in parallel (partial results ok)
       const [monthlyData, dailyData] = await Promise.all([
-        getBotUtmTagStats(config, code),
-        getUtmDailyStats(config, code),
+        getBotUtmTagStats(config, code).catch(() => null),
+        getUtmDailyStats(config, code).catch(() => null),
       ])
+      if (!monthlyData && !dailyData) throw new Error('Не удалось загрузить статистику')
       
-      setStats(monthlyData)
-      setDailyStats(dailyData?.daily || [])
+      if (monthlyData) setStats(monthlyData)
+      const daily = dailyData?.daily || []
+      setDailyStats(daily)
+
+      // Авто-подбор периода: если за 30 дней нет данных, расширяем
+      if (daily.length > 0) {
+        const today = getMoscowTodayStr()
+        const hasDataInRange = (days: number) => {
+          const start = addDays(today, -(days - 1))
+          return daily.some((d: any) => {
+            const date = String(d?.date || '').slice(0, 10)
+            if (date < start || date > today) return false
+            return (Number(d.registrations || 0) + Number(d.new_purchases_count || 0) + Number(d.repeat_purchases_count || 0)) > 0
+          })
+        }
+        if (!hasDataInRange(30)) {
+          if (hasDataInRange(90)) setDaysRange(90)
+          else if (hasDataInRange(180)) setDaysRange(180)
+          else if (hasDataInRange(365)) setDaysRange(365)
+          else setPeriod('months')
+        }
+      } else if (monthlyData?.monthly && monthlyData.monthly.length > 0) {
+        // Нет дневных данных, но есть месячные — переключаемся на месяцы
+        setPeriod('months')
+      }
     } catch (e: any) {
       setError(e?.message || 'Ошибка загрузки статистики UTM')
     } finally {
@@ -141,8 +165,10 @@ export default function UtmStatsModal({
     setStats(null)
     setDailyStats([])
     setShowTable(false)
-    setShowEmptyDays(false)
+    setShowEmptyDays(true)
     setOnlyPurchaseDays(false)
+    setPeriod('days')
+    setDaysRange(30)
     loadStats()
   }, [isOpen, loadStats])
 
@@ -529,15 +555,32 @@ export default function UtmStatsModal({
     )
   }, [loadStats])
 
-  // Тоталы
+  // Тоталы — считаем из месячных данных, чтобы совпадали с графиками
   const totals = useMemo(() => {
+    const monthly = filledMonthlySeries
+    if (monthly.length > 0) {
+      return monthly.reduce(
+        (acc: any, m: any) => ({
+          registrations: acc.registrations + Number(m.registrations || 0),
+          trials: acc.trials + Number(m.trials || 0),
+          new_purchases: acc.new_purchases + Number(m.new_purchases_count || 0),
+          repeat_purchases: acc.repeat_purchases + Number(m.repeat_purchases_count || 0),
+          new_amount: acc.new_amount + Number(m.new_purchases_amount || 0),
+          repeat_amount: acc.repeat_amount + Number(m.repeat_purchases_amount || 0),
+        }),
+        { registrations: 0, trials: 0, new_purchases: 0, repeat_purchases: 0, new_amount: 0, repeat_amount: 0 },
+      )
+    }
+    // Фоллбэк на API тоталы
     return {
       registrations: stats?.registrations ?? utm?.registrations ?? 0,
       trials: stats?.trials ?? utm?.trials ?? 0,
-      payments: stats?.payments ?? utm?.payments ?? 0,
-      total_amount: stats?.total_amount ?? utm?.total_amount ?? 0,
+      new_purchases: stats?.payments ?? utm?.payments ?? 0,
+      repeat_purchases: 0,
+      new_amount: stats?.total_amount ?? utm?.total_amount ?? 0,
+      repeat_amount: 0,
     }
-  }, [stats, utm])
+  }, [filledMonthlySeries, stats, utm])
 
   const periodTotals = useMemo(() => {
     const series = period === 'days' ? daysSeriesForView : filledMonthlySeries
@@ -552,7 +595,7 @@ export default function UtmStatsModal({
       }),
       { registrations: 0, trials: 0, new_purchases_count: 0, new_purchases_amount: 0, repeat_purchases_count: 0, repeat_purchases_amount: 0 },
     )
-  }, [filledDailySeries, filledMonthlySeries, period])
+  }, [daysSeriesForView, filledMonthlySeries, period])
 
   const periodTabs = [
     { key: 'days', label: 'По дням' },
@@ -584,23 +627,31 @@ export default function UtmStatsModal({
       ) : null}
 
       <div className="flex flex-col gap-4">
-        {/* Тоталы (общие из API бота) */}
-        <div className="glass-panel p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* Тоталы */}
+        <div className="glass-panel p-4 grid grid-cols-3 sm:grid-cols-6 gap-3">
           <div className="text-center">
-            <div className="text-2xl font-bold text-primary">{totals.registrations.toLocaleString('ru-RU')}</div>
-            <div className="text-sm text-muted">Регистрации</div>
+            <div className="text-2xl font-bold text-blue-400">{totals.registrations.toLocaleString('ru-RU')}</div>
+            <div className="text-xs text-muted">Регистрации</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-amber-500">{totals.trials.toLocaleString('ru-RU')}</div>
-            <div className="text-sm text-muted">Триалы</div>
+            <div className="text-2xl font-bold text-emerald-400">{totals.trials.toLocaleString('ru-RU')}</div>
+            <div className="text-xs text-muted">Триалы</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-[var(--accent)]">{totals.payments.toLocaleString('ru-RU')}</div>
-            <div className="text-sm text-muted">Новые покупки</div>
+            <div className="text-2xl font-bold text-purple-400">{totals.new_purchases.toLocaleString('ru-RU')}</div>
+            <div className="text-xs text-muted">Новые покупки</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-500">{totals.total_amount.toLocaleString('ru-RU')} ₽</div>
-            <div className="text-sm text-muted">Сумма</div>
+            <div className="text-2xl font-bold text-cyan-400">{totals.repeat_purchases.toLocaleString('ru-RU')}</div>
+            <div className="text-xs text-muted">Повторные</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-400">{Math.round(totals.new_amount + totals.repeat_amount).toLocaleString('ru-RU')} ₽</div>
+            <div className="text-xs text-muted">Выручка</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-amber-400">{(totals.new_purchases + totals.repeat_purchases).toLocaleString('ru-RU')}</div>
+            <div className="text-xs text-muted">Всего покупок</div>
           </div>
         </div>
 

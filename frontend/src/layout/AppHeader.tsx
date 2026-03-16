@@ -173,8 +173,16 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onNotificationsClick, unreadCount
             </svg>
           </button>
 
+        </div>
+
+        {/* Right side: actions */}
+        <div
+          className={`${
+            isApplicationMenuOpen ? "flex" : "hidden"
+          } items-center justify-between w-full gap-3 px-5 py-4 lg:flex lg:justify-end lg:px-0`}
+        >
           {/* Desktop search */}
-          <div className="hidden lg:block" ref={searchRef}>
+          <div className="hidden xl:flex xl:shrink xl:min-w-0 xl:w-[260px]" ref={searchRef}>
             <div className="relative">
               <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
                 <svg className="w-4 h-4 text-faint" viewBox="0 0 20 20" fill="currentColor">
@@ -194,14 +202,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onNotificationsClick, unreadCount
                   if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
                 }}
                 placeholder="Поиск по разделам..."
-                className="h-10 w-full rounded-xl border border-default bg-overlay-xs py-2 pl-11 pr-14 text-sm text-primary placeholder:text-faint focus:border-accent-30 focus:outline-none focus:ring-1 focus:ring-accent-20 xl:w-[380px] transition-all duration-200"
+                className="h-10 w-full rounded-xl border border-default bg-overlay-xs py-2 pl-11 pr-14 text-sm text-primary placeholder:text-faint focus:border-accent-30 focus:outline-none focus:ring-1 focus:ring-accent-20 transition-all duration-200"
               />
               <button type="button" className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-default bg-overlay-xs px-[7px] py-[4px] text-[10px] text-faint">
                 <span>⌘</span><span>K</span>
               </button>
               {/* Dropdown */}
               {searchOpen && searchResults.length > 0 && (
-                <div className="absolute left-0 right-0 top-12 z-[99999] rounded-xl border border-default bg-[var(--bg-sidebar)] shadow-2xl overflow-hidden">
+                <div className="absolute right-0 left-auto top-12 z-[99999] w-full rounded-xl border border-default bg-[var(--bg-sidebar)] shadow-2xl overflow-hidden">
                   {searchResults.map((r, i) => (
                     <button
                       key={r.path}
@@ -216,14 +224,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onNotificationsClick, unreadCount
               )}
             </div>
           </div>
-        </div>
 
-        {/* Right side: actions */}
-        <div
-          className={`${
-            isApplicationMenuOpen ? "flex" : "hidden"
-          } items-center justify-between w-full gap-4 px-5 py-4 lg:flex lg:justify-end lg:px-0`}
-        >
           <div className="flex items-center gap-2 2xsm:gap-3">
             {/* Date */}
             <span className="hidden lg:inline text-xs text-faint font-medium">{formattedDate}</span>

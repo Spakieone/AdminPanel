@@ -125,7 +125,7 @@ function recActionColor(a: string): string {
 function ScoreBar({ score, color }: { score: number; color: string }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-overlay-xs rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(score, 100)}%`, transition: 'width 0.3s' }} />
       </div>
       <span className="text-xs font-mono w-8 text-right text-muted">{score.toFixed(0)}</span>
@@ -585,7 +585,7 @@ export default function Violations() {
                   <div
                     key={v.id}
                     onClick={() => setSelected(v)}
-                    className={`cursor-pointer rounded-xl border px-4 py-3 hover:border-white/20 transition-colors flex items-center gap-3 ${sevBg(v.severity)}`}
+                    className={`cursor-pointer rounded-xl border px-4 py-3 hover:border-default transition-colors flex items-center gap-3 ${sevBg(v.severity)}`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

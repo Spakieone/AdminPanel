@@ -50,7 +50,7 @@ else
     source "$ENV_FILE"
     if [ -n "${GHCR_TOKEN:-}" ]; then
       log "[update] Logging in to GHCR..."
-      echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_OWNER:-spakieone}" --password-stdin 2>/dev/null
+      echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_OWNER}" --password-stdin 2>/dev/null
     fi
   fi
 

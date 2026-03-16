@@ -137,7 +137,7 @@ function ResourceRow({
 }) {
   const hasSpikes = data.some((d) => d.isSpike)
   const toneBg =
-    tone === 'crit' ? 'bg-red-500/10 border-red-500/25' : tone === 'warn' ? 'bg-amber-500/10 border-amber-500/25' : 'bg-white/5 border-default'
+    tone === 'crit' ? 'bg-red-500/10 border-red-500/25' : tone === 'warn' ? 'bg-amber-500/10 border-amber-500/25' : 'bg-overlay-xs border-default'
   const toneIcon = tone === 'crit' ? 'text-red-300' : tone === 'warn' ? 'text-amber-300' : 'text-dim'
   const toneValue = tone === 'crit' ? 'text-red-300' : tone === 'warn' ? 'text-amber-300' : 'text-secondary'
   const rowColor = tone === 'crit' ? '#ef4444' : tone === 'warn' ? '#f59e0b' : color
@@ -538,7 +538,7 @@ export default function SystemMonitorWidget({
 
           <div className="space-y-2.5 flex-1 flex flex-col">
             {/* Bot server (host) + bot process */}
-            <div className="rounded-xl border border-default bg-white/5 p-2">
+            <div className="rounded-xl border border-default bg-overlay-xs p-2">
               <div className="flex items-center justify-between px-1 mb-1">
                 <div className="text-[11px] font-semibold tracking-wider text-dim">СЕРВЕР БОТА</div>
                 <div />

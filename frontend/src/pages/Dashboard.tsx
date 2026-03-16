@@ -99,7 +99,22 @@ function FlagEmoji({ code }: { code?: string | null }) {
   )
 }
 
+function useIsDark() {
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    obs.observe(document.documentElement, { attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
+
 export default function Dashboard() {
+  const isDark = useIsDark()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -391,10 +406,13 @@ export default function Dashboard() {
     }
   }, [tariffStats])
 
+  const chartAxisColor = isDark ? '#6B7280' : '#9CA3AF'
+  const chartTooltipTheme = isDark ? 'dark' : 'light'
+
   // ApexCharts options for Remnawave online
   const rmwApexOptions: ApexOptions = {
     colors: ['#22c55e', '#6B7280'],
-    chart: { fontFamily: 'Inter, sans-serif', type: 'area', height: 310, toolbar: { show: false }, zoom: { enabled: false }, foreColor: '#6B7280', background: 'transparent' },
+    chart: { fontFamily: 'Inter, sans-serif', type: 'area', height: 310, toolbar: { show: false }, zoom: { enabled: false }, foreColor: chartAxisColor, background: 'transparent' },
     stroke: { curve: 'smooth', width: [2, 1.5], dashArray: [0, 4] },
     fill: {
       type: 'gradient',
@@ -404,13 +422,13 @@ export default function Dashboard() {
       },
     },
     markers: { size: 0, hover: { size: 5 } },
-    grid: { borderColor: 'rgba(128,128,128,0.12)', xaxis: { lines: { show: false } }, yaxis: { lines: { show: true } } },
+    grid: { borderColor: isDark ? 'rgba(128,128,128,0.12)' : 'rgba(0,0,0,0.08)', xaxis: { lines: { show: false } }, yaxis: { lines: { show: true } } },
     dataLabels: { enabled: false },
-    xaxis: { type: 'category', categories: rmwOnlineApex.categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { rotate: 0, hideOverlappingLabels: true, maxHeight: 40, style: { colors: '#6B7280' } } },
-    yaxis: { labels: { style: { fontSize: '12px', colors: ['#6B7280'] } } },
+    xaxis: { type: 'category', categories: rmwOnlineApex.categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { rotate: 0, hideOverlappingLabels: true, maxHeight: 40, style: { colors: chartAxisColor } } },
+    yaxis: { labels: { style: { fontSize: '12px', colors: [chartAxisColor] } } },
     legend: { show: false },
     tooltip: {
-      theme: 'dark',
+      theme: chartTooltipTheme,
       shared: true,
       custom: ({ series, dataPointIndex }: { series: number[][], dataPointIndex: number }) => {
         const cur = series[0]?.[dataPointIndex] ?? 0
@@ -424,7 +442,7 @@ export default function Dashboard() {
           const sign = diff >= 0 ? '+' : ''
           deltaHtml = `<div style="margin-top:4px;font-size:11px;color:${color}">${sign}${diff} (${sign}${pct}%) vs ${prevLabel}</div>`
         }
-        return `<div style="padding:8px 12px;font-size:13px;color:#f1f5f9">
+        return `<div style="padding:8px 12px;font-size:13px;color:var(--chart-text-strong)">
           <div style="font-weight:600">${cur} онлайн</div>
           ${deltaHtml}
         </div>`
@@ -435,19 +453,19 @@ export default function Dashboard() {
   // ApexCharts options for tariff popularity
   const tariffApexOptions: ApexOptions = {
     colors: [`var(--accent)`],
-    chart: { fontFamily: 'Inter, sans-serif', type: 'bar', toolbar: { show: false }, zoom: { enabled: false }, foreColor: '#6B7280', background: 'transparent' },
+    chart: { fontFamily: 'Inter, sans-serif', type: 'bar', toolbar: { show: false }, zoom: { enabled: false }, foreColor: chartAxisColor, background: 'transparent' },
     plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '70%' } },
     dataLabels: { enabled: false },
-    xaxis: { categories: tariffApex.categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: '#6B7280' } } },
-    yaxis: { labels: { style: { fontSize: '12px', colors: ['#6B7280'] }, maxWidth: 200 } },
-    grid: { borderColor: 'rgba(128,128,128,0.12)', xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
-    tooltip: { theme: 'dark', y: { formatter: (val: number) => `${val} подписок` } },
+    xaxis: { categories: tariffApex.categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: chartAxisColor } } },
+    yaxis: { labels: { style: { fontSize: '12px', colors: [chartAxisColor] }, maxWidth: 200 } },
+    grid: { borderColor: isDark ? 'rgba(128,128,128,0.12)' : 'rgba(0,0,0,0.08)', xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
+    tooltip: { theme: chartTooltipTheme, y: { formatter: (val: number) => `${val} подписок` } },
   }
 
   // Card style constants
   const C = 'rounded-2xl border border-default bg-overlay-xs p-5 md:p-6'
-  const pillActive = 'rounded-full px-3 py-1 text-xs font-medium bg-accent-10 text-[var(--accent)]'
-  const pill = 'rounded-full px-3 py-1 text-xs font-medium text-muted bg-overlay-md'
+  const pillActive = 'rounded-full px-3 py-1 text-xs font-medium border border-[var(--accent)] bg-accent-10 text-[var(--accent)]'
+  const pill = 'rounded-full px-3 py-1 text-xs font-medium border border-transparent text-muted bg-overlay-md'
 
   return (
     <div className="grid grid-cols-12 gap-4 md:gap-6">
@@ -505,7 +523,7 @@ export default function Dashboard() {
 
           {/* Metric Cards — TailAdmin EcommerceMetrics style */}
           <div className="col-span-12">
-            <MetricCards users={users} finances={finances} subs={subs} />
+            <MetricCards users={users} finances={finances} subs={subs} banned={(fastStats as any)?.banned?.total ?? 0} />
           </div>
 
           {/* Charts row: Payments + Users/Subs */}
@@ -584,71 +602,36 @@ export default function Dashboard() {
                 <p className="mt-1 text-sm text-muted">По количеству подписок</p>
               </div>
             </div>
-            <div className="max-w-full overflow-x-auto custom-scrollbar">
-              <div style={{ minHeight: Math.min(600, Math.max(200, tariffApex.data.length * 30 + 60)) }}>
-                {tariffApex.data.length > 0
-                  ? <Chart options={tariffApexOptions} series={[{ name: 'Подписки', data: tariffApex.data }]} type="bar" height={Math.min(600, Math.max(200, tariffApex.data.length * 30 + 60))} />
-                  : <p className="text-sm text-muted">Нет данных</p>}
-              </div>
+            <div style={{ minHeight: Math.min(600, Math.max(200, tariffApex.data.length * 30 + 60)), paddingTop: 8 }}>
+              {tariffApex.data.length > 0
+                ? <Chart options={tariffApexOptions} series={[{ name: 'Подписки', data: tariffApex.data }]} type="bar" height={Math.min(600, Math.max(200, tariffApex.data.length * 30 + 60))} />
+                : <p className="text-sm text-muted">Нет данных</p>}
             </div>
           </div>
 
           {/* Partners */}
           <div className={`col-span-12 xl:col-span-7 ${C}`}>
-            <h3 className="text-lg font-semibold text-primary mb-1">Партнёрская программа</h3>
-            <p className="text-sm text-muted mb-4">Привлечено и выплаты</p>
-            {/* Row 1: main stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">Партнёров</span>
-                <div className="text-lg font-semibold text-primary font-mono">{Number(partnerStats?.total_partners ?? 0).toLocaleString('ru-RU')}</div>
-              </div>
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">Суммарный баланс</span>
-                <div className="text-lg font-semibold text-success-500 font-mono">{Number(partnerStats?.total_balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ₽</div>
-              </div>
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">Привлечено всего</span>
-                <div className="text-lg font-semibold text-primary font-mono">{Number(partnerStats?.total_referred ?? 0).toLocaleString('ru-RU')}</div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center justify-center w-10 h-10 bg-overlay-md rounded-xl shrink-0 text-2xl">🤝</div>
+              <div>
+                <h3 className="text-base font-semibold text-primary">Партнёрская программа</h3>
+                <p className="text-xs text-muted">Привлечено и выплаты</p>
               </div>
             </div>
-            {/* Row 2: referrals breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">Сегодня</span>
-                <div className="text-sm font-semibold text-primary font-mono">+{Number(partnerStats?.referred_today ?? 0).toLocaleString('ru-RU')}</div>
+            <div className="pt-3 border-t border-default space-y-0">
+              {/* Section: Общее */}
+              <div className="flex items-center justify-between py-1"><span className="text-sm text-muted">👥 Партнёров</span><span className="text-sm font-mono font-semibold text-primary">{Number(partnerStats?.total_partners ?? 0).toLocaleString('ru-RU')}</span></div>
+              <div className="flex items-center justify-between py-1"><span className="text-sm text-muted">🔗 Привлечено всего</span><span className="text-sm font-mono font-semibold text-[var(--accent)]">{Number(partnerStats?.total_referred ?? 0).toLocaleString('ru-RU')}</span></div>
+              <div className="flex items-center justify-between py-1"><span className="text-sm text-muted">💰 Суммарный баланс</span><span className="text-sm font-mono font-semibold text-emerald-400">{Number(partnerStats?.total_balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ₽</span></div>
+              {/* Section: Привлечено */}
+              <div className="pt-2 mt-1 border-t border-default">
+                <p className="text-xs text-muted uppercase tracking-wider mb-1">🗓️ Привлечено</p>
+                <div className="flex items-center justify-between py-1"><span className="text-sm text-muted pl-2">🗓️ За день</span><span className="text-sm font-mono font-semibold text-[var(--accent)]">+{Number(partnerStats?.referred_today ?? 0).toLocaleString('ru-RU')}</span></div>
+                <div className="flex items-center justify-between py-1"><span className="text-sm text-muted pl-2">🗓️ Вчера</span><span className="text-sm font-mono font-semibold text-primary">+{Number(partnerStats?.referred_yesterday ?? 0).toLocaleString('ru-RU')}</span></div>
+                <div className="flex items-center justify-between py-1"><span className="text-sm text-muted pl-2">📆 За неделю</span><span className="text-sm font-mono font-semibold text-primary">+{Number(partnerStats?.referred_week ?? 0).toLocaleString('ru-RU')}</span></div>
+                <div className="flex items-center justify-between py-1"><span className="text-sm text-muted pl-2">📅 За месяц</span><span className="text-sm font-mono font-semibold text-primary">+{Number(partnerStats?.referred_month ?? 0).toLocaleString('ru-RU')}</span></div>
               </div>
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">Вчера</span>
-                <div className="text-sm font-semibold text-primary font-mono">+{Number(partnerStats?.referred_yesterday ?? 0).toLocaleString('ru-RU')}</div>
-              </div>
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">За неделю</span>
-                <div className="text-sm font-semibold text-primary font-mono">+{Number(partnerStats?.referred_week ?? 0).toLocaleString('ru-RU')}</div>
-              </div>
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">За месяц</span>
-                <div className="text-sm font-semibold text-primary font-mono">+{Number(partnerStats?.referred_month ?? 0).toLocaleString('ru-RU')}</div>
-              </div>
-            </div>
-            {/* Row 3: payouts */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">Выплаты сегодня</span>
-                <div className="text-sm font-semibold text-success-500 font-mono">{Number(partnerStats?.paid_today_amount ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ₽</div>
-              </div>
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">За месяц</span>
-                <div className="text-sm font-semibold text-success-500 font-mono">{Number(partnerStats?.paid_month_amount ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ₽</div>
-              </div>
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">Всего выплачено</span>
-                <div className="text-sm font-semibold text-success-500 font-mono">{Number(partnerStats?.paid_total_amount ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ₽</div>
-              </div>
-              <div className="rounded-lg border border-default p-3">
-                <span className="text-xs text-muted">Ожидают вывода</span>
-                <div className="text-sm font-semibold text-warning-500 font-mono">{Number(partnerStats?.pending_withdrawals_count ?? 0)} ({Number(partnerStats?.pending_withdrawals_amount ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ₽)</div>
-              </div>
+
             </div>
           </div>
 
@@ -664,9 +647,10 @@ export default function Dashboard() {
             <div className="space-y-2">
               {partners.slice().sort((a, b) => partnersSort === 'balance' ? Number(b.balance || 0) - Number(a.balance || 0) : Number(b.referred_count || 0) - Number(a.referred_count || 0)).slice(0, 5).map((p, idx) => (
                 <div key={`top-${partnersSort}-${p.tg_id}`} className="flex items-center justify-between gap-3 rounded-lg border border-default px-3 py-2.5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-overlay-md text-sm font-mono text-muted">{idx + 1}</span>
-                    <CopyText text={String(p.tg_id || '')} showToast={false} className="text-xs font-mono text-muted" />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-overlay-md text-sm font-mono text-muted shrink-0">{idx + 1}</span>
+                    <span className="text-xs font-mono text-muted">{p.tg_id}</span>
+                    <CopyText text={String(p.tg_id || '')} showToast={false} label="" className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-overlay-md text-muted transition-colors shrink-0" />
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-success-500">{Number(p.balance || 0).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ₽</span>

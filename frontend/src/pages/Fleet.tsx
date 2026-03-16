@@ -246,8 +246,8 @@ function AgentTokenModal({ nodeUuid, nodeName: name, onClose, onTokenChange }: {
                     Сохраните токен — он показывается только один раз!
                   </div>
                   <div className="relative">
-                    <pre className="text-xs text-[var(--accent)] font-mono bg-black/30 p-2.5 rounded overflow-x-auto whitespace-pre-wrap break-all">{generatedToken}</pre>
-                    <button type="button" onClick={() => copy(generatedToken)} className="absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded text-muted hover:text-primary bg-white/5 hover:bg-white/15">
+                    <pre className="text-xs text-[var(--accent)] font-mono bg-overlay-md p-2.5 rounded overflow-x-auto whitespace-pre-wrap break-all">{generatedToken}</pre>
+                    <button type="button" onClick={() => copy(generatedToken)} className="absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded text-muted hover:text-primary bg-overlay-xs hover:bg-overlay-sm">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
                     </button>
                   </div>
@@ -255,8 +255,8 @@ function AgentTokenModal({ nodeUuid, nodeName: name, onClose, onTokenChange }: {
                     <>
                       <p className="text-xs text-muted">Конфигурация .env:</p>
                       <div className="relative">
-                        <pre className="text-[11px] text-white/60 font-mono bg-black/30 p-2.5 rounded overflow-x-auto whitespace-pre-wrap break-all">{envConfig}</pre>
-                        <button type="button" onClick={() => copy(envConfig)} className="absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded text-muted hover:text-primary bg-white/5 hover:bg-white/15">
+                        <pre className="text-[11px] text-dim font-mono bg-overlay-md p-2.5 rounded overflow-x-auto whitespace-pre-wrap break-all">{envConfig}</pre>
+                        <button type="button" onClick={() => copy(envConfig)} className="absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded text-muted hover:text-primary bg-overlay-xs hover:bg-overlay-sm">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
                         </button>
                       </div>
@@ -271,8 +271,8 @@ function AgentTokenModal({ nodeUuid, nodeName: name, onClose, onTokenChange }: {
                 <div className="p-3 rounded-lg bg-white/[0.03] border border-emerald-500/20 flex flex-col gap-2">
                   <p className="text-xs text-muted">Выполните на сервере ноды (требуется Docker):</p>
                   <div className="relative">
-                    <pre className="text-[11px] text-emerald-300 font-mono bg-black/30 p-2.5 rounded overflow-x-auto whitespace-pre-wrap break-all">{installCmd}</pre>
-                    <button type="button" onClick={() => copy(installCmd)} className="absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded text-muted hover:text-primary bg-white/5 hover:bg-white/15">
+                    <pre className="text-[11px] text-emerald-300 font-mono bg-overlay-md p-2.5 rounded overflow-x-auto whitespace-pre-wrap break-all">{installCmd}</pre>
+                    <button type="button" onClick={() => copy(installCmd)} className="absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded text-muted hover:text-primary bg-overlay-xs hover:bg-overlay-sm">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
                     </button>
                   </div>
@@ -283,7 +283,7 @@ function AgentTokenModal({ nodeUuid, nodeName: name, onClose, onTokenChange }: {
               {/* Кнопки */}
               <div className="flex items-center gap-2 flex-wrap pt-1">
                 <button type="button" onClick={doInstall} disabled={busy}
-                  className="h-8 px-3 rounded-lg border border-white/15 text-xs text-secondary hover:text-primary hover:border-white/30 disabled:opacity-50 flex items-center gap-1.5">
+                  className="h-8 px-3 rounded-lg border border-default text-xs text-secondary hover:text-primary hover:border-white/30 disabled:opacity-50 flex items-center gap-1.5">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
                   {installing ? '…' : 'Установить агента'}
                 </button>
@@ -296,7 +296,7 @@ function AgentTokenModal({ nodeUuid, nodeName: name, onClose, onTokenChange }: {
                 </button>
                 {hasToken && (
                   <button type="button" onClick={() => setConfirmAction('revoke')} disabled={busy}
-                    className="h-8 px-3 rounded-lg border border-white/15 text-red-400 text-xs hover:border-red-500/40 hover:bg-red-500/10 disabled:opacity-50">
+                    className="h-8 px-3 rounded-lg border border-default text-red-400 text-xs hover:border-red-500/40 hover:bg-red-500/10 disabled:opacity-50">
                     {revoking ? '…' : 'Отозвать'}
                   </button>
                 )}
@@ -356,7 +356,7 @@ function NodeCard({ rmNode, agent, onToken }: {
   const diskPct = m?.disk_percent ?? 0
 
   return (
-    <div className={`rounded-xl border ${rmDisabled ? 'border-white/5 opacity-60' : 'border-white/10'} bg-[var(--bg-surface)] flex flex-col overflow-hidden`}>
+    <div className={`rounded-xl border ${rmDisabled ? 'border-white/5 opacity-60' : 'border-default'} bg-[var(--bg-surface)] flex flex-col overflow-hidden`}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-3">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${agentOnline ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : rmConnected ? 'bg-sky-400' : 'bg-zinc-600'}`} />
@@ -368,7 +368,7 @@ function NodeCard({ rmNode, agent, onToken }: {
             {agentOnline && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">Агент</span>}
           </div>
           <div className="text-[11px] text-muted mt-0.5 flex items-center gap-2">
-            {address && <span className="font-mono text-white/40">{address}{rmNode.port ? `:${rmNode.port}` : ''}</span>}
+            {address && <span className="font-mono text-muted">{address}{rmNode.port ? `:${rmNode.port}` : ''}</span>}
             {agentOnline
               ? <span className="text-emerald-400">Агент онлайн</span>
               : agent?.last_seen
@@ -416,7 +416,7 @@ function NodeCard({ rmNode, agent, onToken }: {
             </div>
             <div className="bg-white/3 rounded-lg px-3 py-1.5 flex items-center justify-between">
               <span className="text-muted">Uptime</span>
-              <span className="font-mono text-white/70">{fmtUptime(m.uptime_seconds ?? 0)}</span>
+              <span className="font-mono text-dim">{fmtUptime(m.uptime_seconds ?? 0)}</span>
             </div>
           </div>
           <button type="button" onClick={() => setExpanded(v => !v)}
@@ -442,7 +442,7 @@ function NodeCard({ rmNode, agent, onToken }: {
       <div className="border-t border-white/5 px-4 py-2 flex items-center gap-2">
         <span className="text-[10px] text-muted/50 font-mono truncate flex-1" title={uuid}>{uuid.slice(0, 8)}…</span>
         {rmNode.xrayVersion && (
-          <span className="text-[10px] text-white/30 flex items-center gap-1">
+          <span className="text-[10px] text-faint flex items-center gap-1">
             <span className="text-yellow-400/60">⚡</span>{rmNode.xrayVersion}
           </span>
         )}

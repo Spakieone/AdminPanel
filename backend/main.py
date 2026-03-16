@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Respons
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from json_store import _cached_read_json, _read_json, _write_json
 from remnawave_helpers import _extract_online_users_count, _extract_nodes_list, _sum_online_from_nodes, _remnawave_get_json
@@ -1457,7 +1457,7 @@ api = APIRouter()
 
 
 VERSION_FILE = DATA_DIR / "version.json"
-VERSION_CHECK_URL = "https://pocomacho.ru/solonetbot/modules/AdminPanel"
+VERSION_CHECK_URL = os.environ.get("ADMINPANEL_VERSION_CHECK_URL", "")
 
 
 def _get_current_version() -> Dict[str, Any]:
@@ -1591,8 +1591,8 @@ async def check_version_update() -> Dict[str, Any]:
     return result
 
 
-GITHUB_PANEL_REPO = "Spakieone/AdminPanel"
-BOT_API_MODULE_CHECK_URL = "https://pocomacho.ru/solonetbot/modules/AdminPanel"
+GITHUB_PANEL_REPO = os.environ.get("ADMINPANEL_GITHUB_REPO", "")
+BOT_API_MODULE_CHECK_URL = os.environ.get("ADMINPANEL_BOT_API_CHECK_URL", "")
 BOT_API_VERSION_FILE = Path("/root/bot/modules/api/version.json")
 
 
@@ -1655,7 +1655,7 @@ async def check_panel_version() -> Dict[str, Any]:
 
 @api.get("/version/bot-api")
 async def check_bot_api_version() -> Dict[str, Any]:
-    """Проверить версию API модуля бота через pocomacho.ru."""
+    """Проверить версию API модуля бота."""
     current_version = _get_bot_api_current_version()
     result: Dict[str, Any] = {
         "current_version": current_version,
@@ -2748,10 +2748,6 @@ def _lk_choose_bot_profile_id(bot_username: Optional[str]) -> Optional[str]:
         score = 0
         if bn and name and (name in bn or bn in name):
             score += 100
-        if bn and "pepe" in bn and ("pepe" in name or "nopepe" in url or "pepe" in url):
-            score += 60
-        if bn and ("touch" in bn or "nonotouch" in bn) and ("touch" in name or "nonotouch" in url):
-            score += 40
         if score > best_score:
             best_score = score
             best_id = pid
@@ -3337,232 +3333,11 @@ async def lk_subscriptions(request: Request) -> Response:
     _lk_rate_check(request)
     return await _proxy_to_lk_module_api(request, "lk/subscriptions")
 
-    RU_MONTHS = (
-        "января",
-        "февраля",
-        "марта",
-        "апреля",
-        "мая",
-        "июня",
-        "июля",
-        "августа",
-        "сентября",
-        "октября",
-        "ноября",
-        "декабря",
-    )
-    MSK_TZ = timezone(timedelta(hours=3))
-
-    def fmt_ms_msk(ms: Any) -> Optional[str]:
-        try:
-            v = int(ms)
-            if v <= 0:
-                return None
-            dt = datetime.fromtimestamp(v / 1000, tz=timezone.utc).astimezone(MSK_TZ)
-            month = RU_MONTHS[dt.month - 1]
-            return f"{dt.day} {month} {dt.year} года, {dt:%H:%M} (МСК)"
-        except Exception:
-            return None
-
-    now_ms = int(time.time() * 1000)
-    try:
-        profile = _lk_get_bot_profile_for_session(session)
-        if not profile:
-            return {"ok": True, "items": []}
-
-        bot_info = {"id": str(profile.get("id") or ""), "name": str(profile.get("name") or "")}
-
-        # Profile info (balance) comes from bot module, not Telegram.
-        user_obj: Dict[str, Any] = {}
-        balance_rub = 0.0
-        display_name = str(session.get("first_name") or session.get("username") or "").strip()
-        try:
-            user_payload = await _lk_fetch_bot_json(profile, f"users/{user_tg_id}", {})
-            user_obj = user_payload.get("user") if isinstance(user_payload, dict) else {}
-            if not isinstance(user_obj, dict):
-                user_obj = {}
-            try:
-                balance_rub = float(user_obj.get("balance") or 0)
-            except Exception:
-                balance_rub = 0.0
-            display_name = str(user_obj.get("first_name") or user_obj.get("username") or display_name or "").strip()
-        except Exception:
-            # User may not exist in bot DB yet (no subscriptions) — still allow LK.
-            user_obj = {}
-            balance_rub = 0.0
-            display_name = str(display_name or "").strip()
-
-        keys = await _fetch_bot_paginated(profile, "keys", {"page": 1, "limit": 200, "user_tg_id": user_tg_id})
-        tariffs = await _fetch_bot_paginated(profile, "tariffs", {})
-        tariff_map: Dict[int, str] = {}
-        for t in (tariffs.get("items") if isinstance(tariffs, dict) else []) or []:
-            if not isinstance(t, dict):
-                continue
-            try:
-                tid = int(t.get("id"))
-            except Exception:
-                continue
-            name = str(t.get("name") or "").strip()
-            if name:
-                tariff_map[tid] = name
-
-        async def fetch_used_gb(client_id: str) -> float:
-            try:
-                payload = await _lk_fetch_bot_json(profile, f"keys/{client_id}/traffic", {})
-                tr = payload.get("traffic") if isinstance(payload, dict) else None
-                if isinstance(tr, dict):
-                    inner = tr.get("traffic")
-                    if isinstance(inner, dict):
-                        total = 0.0
-                        for v in inner.values():
-                            try:
-                                total += float(v)
-                            except Exception:
-                                continue
-                        return float(total)
-                return 0.0
-            except Exception:
-                return 0.0
-
-        out_items: List[Dict[str, Any]] = []
-        traffic_tasks: Dict[str, asyncio.Task] = {}
-        traffic_cap = 20
-        traffic_count = 0
-        for it in (keys.get("items") if isinstance(keys, dict) else []) or []:
-            if not isinstance(it, dict):
-                continue
-            client_id = str(it.get("client_id") or it.get("id") or "")
-            if not client_id:
-                continue
-            # Each user typically has a few keys; safe to fetch per-key traffic.
-            if traffic_count < traffic_cap:
-                traffic_tasks[client_id] = asyncio.create_task(fetch_used_gb(client_id))
-                traffic_count += 1
-
-        used_by_client: Dict[str, float] = {}
-        if traffic_tasks:
-            for cid, task in traffic_tasks.items():
-                try:
-                    used_by_client[cid] = float(await task)
-                except Exception:
-                    used_by_client[cid] = 0.0
-
-        for it in (keys.get("items") if isinstance(keys, dict) else []) or []:
-            if not isinstance(it, dict):
-                continue
-            client_id = str(it.get("client_id") or it.get("id") or "")
-            if not client_id:
-                continue
-            expiry_ms = it.get("expiry_time")
-            is_frozen = bool(it.get("is_frozen"))
-            status: str
-            try:
-                exp_v = int(expiry_ms) if expiry_ms is not None else 0
-            except Exception:
-                exp_v = 0
-            if is_frozen:
-                status = "paused"
-            elif exp_v and exp_v < now_ms:
-                status = "expired"
-            else:
-                status = "active"
-
-            tariff_id = it.get("tariff_id")
-            try:
-                tid = int(tariff_id) if tariff_id is not None else None
-            except Exception:
-                tid = None
-            plan_name = tariff_map.get(tid) if tid is not None else None
-            alias = str(it.get("alias") or "").strip()
-            title = alias or plan_name or "Подписка"
-            link = str(it.get("remnawave_link") or it.get("key") or "").strip() or None
-            try:
-                traffic_limit_gb = float(it.get("selected_traffic_limit") or it.get("current_traffic_limit") or 0)
-            except Exception:
-                traffic_limit_gb = 0.0
-            used_gb = float(used_by_client.get(client_id) or 0.0)
-
-            out_items.append(
-                {
-                    "id": client_id,
-                    "title": title,
-                    "status": status,
-                    "expires_at": fmt_ms_msk(expiry_ms),
-                    "server_name": str(it.get("server_id") or "") or None,
-                    "plan_name": plan_name,
-                    "subscription_url": link,
-                    "traffic_used_gb": round(used_gb, 2),
-                    "traffic_limit_gb": round(traffic_limit_gb, 2),
-                }
-            )
-        return {
-            "ok": True,
-            "bot": bot_info,
-            "profile": {"name": display_name, "tg_id": user_tg_id, "balance_rub": round(balance_rub, 2)},
-            "items": out_items,
-        }
-    except Exception:
-        # Fallback to mock file (non-fatal for LK UI)
-        tg_id = user_tg_id
-        u = _lk_read_user_data(tg_id) if tg_id else {}
-        items = u.get("subscriptions")
-        if not isinstance(items, list):
-            items = []
-        return {"ok": True, "profile": {"name": "", "tg_id": user_tg_id, "balance_rub": 0}, "items": items}
-
 
 @api.get("/lk/payments/history")
 async def lk_payments_history(request: Request) -> Response:
     _lk_rate_check(request)
     return await _proxy_to_lk_module_api(request, "lk/payments/history")
-
-    def map_status(s: Any) -> str:
-        v = str(s or "").lower().strip()
-        if v in ("success", "successful", "completed", "paid"):
-            return "paid"
-        if v in ("pending", "wait", "waiting", "in_progress"):
-            return "pending"
-        if v in ("failed", "error", "canceled", "cancelled"):
-            return "failed"
-        if v in ("refunded", "refund"):
-            return "refunded"
-        return "unknown"
-
-    try:
-        profile = _lk_get_bot_profile_for_session(session)
-        if not profile:
-            return {"ok": True, "items": []}
-        data = await _fetch_bot_paginated(profile, "payments", {"page": 1, "limit": 200, "user_tg_id": user_tg_id})
-        out_items: List[Dict[str, Any]] = []
-        for p in (data.get("items") if isinstance(data, dict) else []) or []:
-            if not isinstance(p, dict):
-                continue
-            pid = p.get("id") or p.get("payment_id") or ""
-            created = p.get("created_at") or p.get("created") or ""
-            try:
-                amount = float(p.get("amount") or p.get("sum") or 0)
-            except Exception:
-                amount = 0.0
-            currency = str(p.get("currency") or "RUB")
-            desc = str(p.get("description") or p.get("comment") or p.get("title") or p.get("payment_system") or "").strip() or None
-            out_items.append(
-                {
-                    "id": str(pid),
-                    "created_at": str(created),
-                    "amount": amount,
-                    "currency": currency,
-                    "status": map_status(p.get("status") or p.get("payment_status")),
-                    "description": desc,
-                }
-            )
-        return {"ok": True, "items": out_items}
-    except Exception:
-        tg_id = user_tg_id
-        u = _lk_read_user_data(tg_id) if tg_id else {}
-        items = u.get("payments")
-        if not isinstance(items, list):
-            items = []
-        return {"ok": True, "items": items}
 
 
 @api.get("/lk/auth/logout")
@@ -5463,6 +5238,150 @@ async def get_partner_attracted_stats(
     return payload
 
 # -----------------------
+# Partner payout requests (admin management)
+# -----------------------
+
+def _get_bot_db_session():
+    """Get a raw DB session via the bot's DB engine (same DB as bot)."""
+    try:
+        from database import AsyncSessionLocal
+        return AsyncSessionLocal()
+    except Exception:
+        return None
+
+@api.get("/partner-withdrawals")
+async def get_partner_withdrawals(
+    status: str = "pending",
+    page: int = 1,
+    limit: int = 25,
+    _session: Dict[str, Any] = Depends(_require_auth),
+) -> Dict[str, Any]:
+    """List payout requests. status: pending|completed|all"""
+    try:
+        from database import AsyncSessionLocal
+        from sqlalchemy import text as _text
+        async with AsyncSessionLocal() as db:
+            # Check table exists
+            exists = (await db.execute(_text(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='payout_requests'"
+            ))).scalar()
+            if not exists:
+                return {"ok": True, "items": [], "total": 0, "pages": 0, "no_module": True}
+
+            where = ""
+            if status == "pending":
+                where = "WHERE lower(coalesce(status,'')) ~ '(pending|wait)' OR lower(coalesce(status,'')) IN ('created','new')"
+            elif status == "completed":
+                where = "WHERE lower(coalesce(status,'')) IN ('approved','paid','done','success','completed','rejected','declined','cancelled')"
+
+            total = int((await db.execute(_text(f"SELECT COUNT(*) FROM payout_requests {where}"))).scalar() or 0)
+            offset = (max(1, page) - 1) * limit
+            rows = (await db.execute(_text(
+                f"SELECT id, tg_id, amount, method, destination, status, created_at FROM payout_requests {where} ORDER BY created_at DESC LIMIT :lim OFFSET :off"
+            ), {"lim": limit, "off": offset})).fetchall()
+
+            items = []
+            for r in rows:
+                items.append({
+                    "id": r[0], "tg_id": r[1], "amount": float(r[2] or 0),
+                    "method": r[3], "destination": r[4], "status": r[5],
+                    "created_at": r[6].isoformat() if r[6] else None,
+                })
+            return {"ok": True, "items": items, "total": total, "pages": max(1, -(-total // limit))}
+    except ImportError:
+        return {"ok": False, "error": "no_module", "items": [], "total": 0, "pages": 0}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api.post("/partner-withdrawals/{withdrawal_id}/approve")
+async def approve_partner_withdrawal(
+    withdrawal_id: int,
+    request: Request,
+    _session: Dict[str, Any] = Depends(_require_auth),
+) -> Dict[str, Any]:
+    _require_csrf(request, _session)
+    try:
+        from database import AsyncSessionLocal
+        from sqlalchemy import text as _text
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(_text(
+                "UPDATE payout_requests SET status='approved' WHERE id=:id AND lower(coalesce(status,'')) NOT IN ('approved','paid','done') RETURNING id"
+            ), {"id": withdrawal_id})
+            updated = result.fetchone()
+            await db.commit()
+            if not updated:
+                raise HTTPException(status_code=404, detail="Заявка не найдена или уже обработана")
+            return {"ok": True, "id": withdrawal_id}
+    except HTTPException:
+        raise
+    except ImportError:
+        raise HTTPException(status_code=400, detail="Модуль партнёрской программы недоступен")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api.post("/partner-withdrawals/{withdrawal_id}/reject")
+async def reject_partner_withdrawal(
+    withdrawal_id: int,
+    request: Request,
+    _session: Dict[str, Any] = Depends(_require_auth),
+) -> Dict[str, Any]:
+    """Reject and return funds to partner balance."""
+    _require_csrf(request, _session)
+    try:
+        from database import AsyncSessionLocal
+        from sqlalchemy import text as _text
+        async with AsyncSessionLocal() as db:
+            row = (await db.execute(_text(
+                "SELECT tg_id, amount, status FROM payout_requests WHERE id=:id"
+            ), {"id": withdrawal_id})).fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Заявка не найдена")
+            tg_id, amount, cur_status = row
+            if str(cur_status).lower() in ("approved", "paid", "done"):
+                raise HTTPException(status_code=400, detail="Заявка уже одобрена — нельзя отклонить")
+            # Return funds to partner balance
+            await db.execute(_text(
+                "UPDATE payout_requests SET status='rejected' WHERE id=:id"
+            ), {"id": withdrawal_id})
+            await db.execute(_text(
+                "UPDATE users SET partner_balance = COALESCE(partner_balance,0) + :amt WHERE tg_id=:t"
+            ), {"amt": float(amount or 0), "t": tg_id})
+            await db.commit()
+            return {"ok": True, "id": withdrawal_id, "refunded": float(amount or 0)}
+    except HTTPException:
+        raise
+    except ImportError:
+        raise HTTPException(status_code=400, detail="Модуль партнёрской программы недоступен")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api.post("/partner-reset-methods")
+async def reset_partner_disabled_methods(
+    request: Request,
+    _session: Dict[str, Any] = Depends(_require_auth),
+) -> Dict[str, Any]:
+    """Reset disabled/empty payout methods for all partners."""
+    _require_csrf(request, _session)
+    try:
+        from database import AsyncSessionLocal
+        from sqlalchemy import text as _text
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(_text(
+                "UPDATE users SET payout_method=NULL, card_number=NULL WHERE partner_balance IS NOT NULL AND (payout_method IS NULL OR payout_method='' OR card_number IS NULL OR card_number='') RETURNING tg_id"
+            ))
+            rows = result.fetchall()
+            await db.commit()
+            return {"ok": True, "reset_count": len(rows)}
+    except ImportError:
+        raise HTTPException(status_code=400, detail="Модуль партнёрской программы недоступен")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# -----------------------
 # Monitoring (local JSON)
 # -----------------------
 @api.get("/monitoring/settings/")
@@ -6337,6 +6256,11 @@ async def remnawave_nodes_usage_realtime(request: Request, profile_id: Optional[
     return await _proxy_to_remnawave(request, "api/nodes/usage/realtime", profile_id)
 
 
+@api.get("/remnawave/bandwidth-stats/nodes/realtime")
+async def remnawave_bandwidth_stats_nodes_realtime(request: Request, profile_id: Optional[str] = None, _session: Dict[str, Any] = Depends(_require_auth)) -> Any:
+    return await _proxy_to_remnawave(request, "api/bandwidth-stats/nodes/realtime", profile_id)
+
+
 @api.get("/remnawave/hosts/")
 async def remnawave_hosts(request: Request, profile_id: Optional[str] = None, _session: Dict[str, Any] = Depends(_require_auth)) -> Any:
     return await _proxy_to_remnawave(request, "api/hosts", profile_id)
@@ -6533,7 +6457,7 @@ async def remnawave_user_by_email(email: str, request: Request, profile_id: Opti
 
 
 class RemnawaveBulkLookupRequest(BaseModel):
-    identifiers: List[str]
+    identifiers: List[str] = Field(max_length=500)
 
 
 @api.post("/remnawave/users/bulk-lookup")
@@ -6774,6 +6698,8 @@ async def remnawave_rw_proxy(
     profile_id: Optional[str] = None,
     _session: Dict[str, Any] = Depends(_require_auth),
 ) -> Any:
+    if request.method.upper() in {"POST", "PATCH", "PUT", "DELETE"}:
+        _require_csrf(request, _session)
     return await _proxy_to_remnawave(request, f"api/{path}", profile_id)
 
 

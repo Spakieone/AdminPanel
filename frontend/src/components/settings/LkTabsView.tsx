@@ -324,7 +324,7 @@ function ProfileForm({ profile, botProfiles, allProfiles, onSaved, onDeleted }: 
           </div>
 
           {/* Test block */}
-          <div className="rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-4 space-y-2">
+          <div className="rounded-lg border border-dashed border-default bg-white/[0.02] p-4 space-y-2">
             <div className="text-xs font-semibold text-muted uppercase tracking-wide">Тест отправки</div>
             <p className="text-xs text-faint">Отправим тестовое письмо чтобы убедиться что SMTP настроен корректно.</p>
             <div className="flex gap-2 mt-1">

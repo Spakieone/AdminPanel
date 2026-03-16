@@ -1,126 +1,154 @@
+<div align="center">
+
 # AdminPanel
 
-Веб-панель управления для Telegram-бота и Remnawave. Backend — FastAPI, frontend — React + Vite. Работает в Docker.
+**Веб-панель управления Telegram-ботом и Remnawave VPN**
+
+FastAPI · React + Vite · Docker
+
+[![Docker](https://img.shields.io/badge/Docker-20.10+-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/get-docker/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+</div>
 
 ---
 
-## Содержание
+## Возможности
 
-1. [Установка](#1-установка)
-2. [Обновление панели](#2-обновление-панели)
-3. [Личный кабинет (ЛК)](#3-личный-кабинет-лк)
-4. [Подключение бота (API-модуль)](#4-подключение-бота-api-модуль)
-5. [Reverse proxy (Caddy / Nginx)](#5-reverse-proxy-caddy--nginx)
-6. [Публикация на GitHub](#6-публикация-на-github)
-7. [Смена пароля и управление пользователями](#7-смена-пароля-и-управление-пользователями)
-8. [Диагностика](#8-диагностика)
-9. [Удаление](#9-удаление)
-10. [Быстрые команды](#10-быстрые-команды)
+- **Дашборд** — статистика в реальном времени, графики, мониторинг системы
+- **Управление пользователями** — поиск, фильтры, редактирование, бан/разбан, операции с балансом
+- **Подписки** — создание, продление, отзыв ключей с отслеживанием трафика
+- **Remnawave** — полное управление нодами, пользователями, ключами через Remnawave API
+- **Управление ботом** — настройки, тарифы, купоны, подарки, рассылки, логи
+- **Личный кабинет (ЛК)** — портал самообслуживания для пользователей (тарифы, оплата, ключи)
+- **Роли доступа** — 5 уровней: owner, super_admin, manager, operator, viewer
+- **2FA** — двухфакторная аутентификация через Telegram
+- **Темы** — полная поддержка тёмной и светлой темы
+- **Адаптивность** — работает на десктопе, планшете и мобильном
+- **Автообновления** — обновление из UI или CLI в один клик
 
 ---
 
-## 1. Установка
-
-### 1.1. Требования
-
-- Docker + Docker Compose
-- Открытый порт `8888` (или настроенный reverse proxy)
-
-### 1.2. Запуск
+## Быстрый старт
 
 ```bash
-git clone https://github.com/OWNER/adminpanel.git /root/adminpanel
+git clone https://github.com/OWNER/AdminPanel.git /root/adminpanel
 cd /root/adminpanel
 docker compose up -d --build
 ```
 
-Панель доступна: `http://SERVER_IP:8888/webpanel/`
+Панель доступна: `http://IP_СЕРВЕРА:8888/webpanel/`
 
-### 1.3. Обновление образа через ghcr.io
+---
 
-Если используете образ из GitHub Container Registry:
+## Требования
+
+| Компонент | Минимум |
+|-----------|---------|
+| ОС | Ubuntu 20.04+ / Debian 11+ / CentOS 8+ |
+| Docker | 20.10+ с Compose plugin |
+| RAM | 512 MB |
+| Диск | 2 GB свободного места |
+| Порт | 8888 (или через reverse proxy) |
+
+---
+
+## Установка
+
+### Вариант 1: Автоматическая
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/AdminPanel/main/scripts/install.sh)
+```
+
+Скрипт автоматически:
+- Определит ОС и установит зависимости
+- Установит Docker (если не установлен)
+- Клонирует репозиторий
+- Соберёт Docker-образ
+- Запустит панель
+- Покажет логин и пароль для первого входа
+
+### Вариант 2: Ручная
+
+```bash
+# 1. Клонировать
+git clone https://github.com/OWNER/AdminPanel.git /root/adminpanel
+cd /root/adminpanel
+
+# 2. Создать .env
+echo "HOST_PROJECT_DIR=/root/adminpanel" > .env
+
+# 3. Создать директорию данных
+mkdir -p data
+
+# 4. Собрать и запустить
+docker compose up -d --build
+
+# 5. Проверить логи
+docker logs adminpanel --tail 20
+```
+
+### Вариант 3: Готовый образ (GHCR)
 
 ```bash
 cd /root/adminpanel
-docker compose -f docker-compose.ghcr.yml pull
-docker compose -f docker-compose.ghcr.yml up -d
+bash scripts/install-docker.sh
 ```
+
+> Требуется GitHub PAT с правом `read:packages`
 
 ---
 
-## 2. Обновление панели
+## Обновление
 
-### 2.1. Обновление через UI
+### Через панель (рекомендуется)
 
-1. В панели: **Settings → Обновления**.
-2. Нажмите **Проверить доступность** — убедитесь, что GitHub доступен.
-3. Нажмите **Обновить из GitHub** — начнётся загрузка и установка.
-4. Следите за **Логом обновления** в правой колонке.
+1. **Настройки → Обновления**
+2. **Проверить доступность**
+3. **Обновить из GitHub**
 
-Что делает обновление автоматически:
-- создаёт бэкап: `bot_profiles.json`, `remnawave_profiles.json`, `auth_credentials.json`, `panel_users.sqlite`, `ui_settings.json`, `monitoring_settings.json`, `sender_saved_messages.json`, `uploads/sender/`
-- скачивает последнюю версию из GitHub
-- заменяет код панели, восстанавливает бэкап
-- перезапускает контейнер
+> Доступно только для роли `super_admin`
 
-> Доступно только для роли `super_admin`.
+### Через CLI
 
-### 2.2. Файлы данных
+```bash
+cd /root/adminpanel
 
-| Файл | Что хранит |
+# Готовый образ из GHCR
+bash scripts/update-docker.sh
+
+# Пересборка из исходников
+bash scripts/update-docker.sh --local
+```
+
+### Что сохраняется при обновлении
+
+| Файл | Содержимое |
 |------|-----------|
 | `bot_profiles.json` | Профили ботов (токены, API URL) |
 | `remnawave_profiles.json` | Профили Remnawave |
-| `auth_credentials.json` | Логин и пароль админки |
-| `panel_users.sqlite` | Пользователи панели, роли, tg_id для 2FA |
-| `ui_settings.json` | Название панели, настройки UI |
-| `monitoring_settings.json` | Настройки мониторинга и уведомлений |
-| `sender_saved_messages.json` | Сохранённые сообщения для рассылки |
-| `uploads/sender/` | Фото для рассылок |
-| `api/` | API-модуль бота (копируется в `/root/bot/modules/api`) |
+| `auth_credentials.json` | Логин и пароль панели |
+| `panel_users.sqlite` | Пользователи, роли, 2FA |
+| `ui_settings.json` | Название панели, темы |
+| `monitoring_settings.json` | Мониторинг и уведомления |
+| `uploads/` | Загруженные файлы |
 
 ---
 
-## 3. Личный кабинет (ЛК)
+## Личный кабинет (ЛК)
 
-ЛК работает в том же контейнере, что и AdminPanel, — на порту `8888`. Роутинг по HTTP-заголовку `Host`.
+ЛК работает в том же контейнере на порту `8888`. Роутинг — по HTTP-заголовку `Host`.
 
-### 3.1. Настройка домена ЛК в панели
+### Настройка
 
-1. Откройте: **Панель → ЛК → Профили ЛК**.
-2. Укажите домен профиля, например `lk.example.com`.
+1. **Панель → ЛК → Профили ЛК**
+2. Укажите домен, например `lk.example.com`
+3. Настройте reverse proxy (см. ниже)
 
-### 3.2. Reverse proxy для ЛК
-
-**Caddy** (`/etc/caddy/Caddyfile`):
-
-```caddy
-lk.example.com {
-    reverse_proxy localhost:8888
-}
-```
-
-**Nginx** (новый `server`-блок):
-
-```nginx
-server {
-    listen 80;
-    server_name lk.example.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:8888;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-> Важно: `proxy_set_header Host $host;` обязательно — иначе панель не поймёт, что запрос предназначен для ЛК.
-
-### 3.3. Проверка без DNS
+### Проверка без DNS
 
 ```bash
 curl -H 'Host: lk.example.com' http://127.0.0.1:8888/ | head -5
@@ -128,11 +156,11 @@ curl -H 'Host: lk.example.com' http://127.0.0.1:8888/ | head -5
 
 ---
 
-## 4. Подключение бота (API-модуль)
+## Подключение бота (API-модуль)
 
-Для работы вкладок «Пользователи / Ключи / Серверы / Бот» нужен **API-модуль бота** — HTTP API на `127.0.0.1:7777`.
+Вкладки **Пользователи / Ключи / Серверы / Бот** требуют API-модуль — HTTP API на `127.0.0.1:7777`.
 
-### 4.1. Установка модуля
+### Установка модуля
 
 ```bash
 mkdir -p /root/bot/modules
@@ -140,44 +168,13 @@ cp -r /root/adminpanel/api /root/bot/modules/api
 sudo systemctl restart bot.service
 ```
 
-Префикс API: `/adminpanel/api`
+### Получение токена
 
-### 4.2. Reverse proxy для API-модуля
+В боте: **Админы → выберите себя → Сгенерировать токен**
 
-**Caddy** (добавить внутрь блока вашего домена):
+> Токен показывается один раз — сохраните его!
 
-```caddy
-handle /adminpanel/api/* {
-    reverse_proxy 127.0.0.1:7777
-}
-```
-
-```bash
-sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
-```
-
-**Nginx** (добавить внутрь `server { ... }`):
-
-```nginx
-location /adminpanel/api/ {
-    proxy_pass http://127.0.0.1:7777;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-### 4.3. Получение токена
-
-В боте: **Админы → выберите себя → Сгенерировать токен**. Сохраните — показывается один раз.
-
-### 4.4. Создание профиля в AdminPanel
+### Создание профиля
 
 **AdminPanel → Профили ботов → Создать профиль:**
 
@@ -187,36 +184,27 @@ sudo nginx -t && sudo systemctl reload nginx
 | Admin ID | ваш `tg_id` |
 | Token | токен из бота |
 
-После сохранения и активации профиля страницы Users/Keys/Servers открываются без `401`.
-
 ---
 
-## 5. Reverse proxy (Caddy / Nginx)
+## Reverse Proxy
 
-### 5.1. Caddy
-
-**Установка:**
+### Caddy (рекомендуется)
 
 ```bash
 sudo apt update && sudo apt install -y caddy
 sudo systemctl enable --now caddy
 ```
 
-**Конфиг** (`/etc/caddy/Caddyfile`):
+`/etc/caddy/Caddyfile`:
 
 ```caddy
 admin.example.com {
-    redir /webpanel /webpanel/ 301
+    reverse_proxy localhost:8888
+}
 
-    handle /webpanel/* {
-        reverse_proxy localhost:8888
-    }
-
-    handle /api/* {
-        reverse_proxy localhost:8888
-    }
-
-    redir / /webpanel/ 301
+# Личный кабинет (опционально)
+lk.example.com {
+    reverse_proxy localhost:8888
 }
 ```
 
@@ -225,46 +213,28 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
-### 5.2. Nginx
+> Caddy получает SSL автоматически — сертификаты не нужны.
 
-**Установка:**
+### Nginx
 
 ```bash
 sudo apt update && sudo apt install -y nginx
-sudo systemctl enable --now nginx
 ```
 
-**Конфиг** (`/etc/nginx/sites-available/adminpanel`):
+`/etc/nginx/sites-available/adminpanel`:
 
 ```nginx
 server {
     listen 80;
     server_name admin.example.com;
 
-    location = /webpanel {
-        return 301 /webpanel/;
-    }
-
-    location /webpanel/ {
+    location / {
         proxy_pass http://127.0.0.1:8888;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:8888;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location = / {
-        return 301 /webpanel/;
     }
 }
 ```
@@ -283,129 +253,123 @@ sudo certbot --nginx -d admin.example.com
 
 ---
 
-## 6. Публикация на GitHub
+## Управление пользователями
 
-Скрипт `scripts/publish-github.sh` инициализирует git-репозиторий, настраивает `.gitignore` (исключает секреты и runtime-файлы) и публикует проект на GitHub.
-
-### 6.1. Использование
-
-```bash
-cd /root/adminpanel
-
-# Интерактивный режим (скрипт спросит URL и сообщение коммита)
-bash scripts/publish-github.sh
-
-# С параметрами
-bash scripts/publish-github.sh \
-  --remote https://github.com/OWNER/adminpanel.git \
-  --branch main \
-  --message "v1.0.0"
-
-# SSH remote
-bash scripts/publish-github.sh \
-  --remote git@github.com:OWNER/adminpanel.git
-
-# Dry-run (показать что произойдёт, без пуша)
-bash scripts/publish-github.sh --dry-run
-```
-
-### 6.2. Опции
-
-| Флаг | Описание |
-|------|----------|
-| `--remote URL` | GitHub remote (HTTPS или SSH) |
-| `--branch NAME` | Ветка (по умолчанию: `main`) |
-| `--message MSG` | Сообщение коммита |
-| `--force` | Force push |
-| `--dry-run` | Показать план без выполнения |
-
-### 6.3. Что исключается из репозитория
-
-- `auth_credentials.json`, `.auth_tokens.json`, `bot_profiles.json`, `remnawave_profiles.json`
-- `panel_users.sqlite`, `*.db`, `*.sqlite`
-- `data/`, `uploads/`, `telegram_sessions/`, `logs/`
-- `venv/`, `.env`, `node_modules/`
-- `*.log`, `*.zip`, `lk_site_configs/`
-
-`frontend/dist/` **включается** — нужен при клонировании без Node.js.
-
-### 6.4. Настройка SSH-ключа для GitHub
-
-```bash
-ssh-keygen -t ed25519 -C "your@email.com"
-cat ~/.ssh/id_ed25519.pub
-```
-
-Добавьте публичный ключ в GitHub: **Settings → SSH and GPG keys → New SSH key**.
-
-```bash
-ssh -T git@github.com  # проверка
-```
-
----
-
-## 7. Смена пароля и управление пользователями
+### Смена пароля через CLI
 
 ```bash
 docker exec -it adminpanel python3 admin_cli.py password
 ```
 
-Управление через UI: **AdminPanel → Управление пользователями** — создание пользователей, роли (`owner`, `super_admin`, `manager`, `operator`, `viewer`), привязка Telegram для 2FA.
+### Через панель
+
+**AdminPanel → Управление пользователями**
+
+| Роль | Права |
+|------|-------|
+| `owner` | Полный доступ, управление super_admin |
+| `super_admin` | Обновления, управление пользователями |
+| `manager` | Управление ботом, пользователями бота |
+| `operator` | Просмотр + базовые действия |
+| `viewer` | Только просмотр |
 
 ---
 
-## 8. Диагностика
+## Быстрые команды
 
-### Статус контейнера
+| Действие | Команда |
+|----------|---------|
+| Запуск | `docker compose up -d` |
+| Остановка | `docker compose down` |
+| Перезапуск | `docker compose restart` |
+| Логи | `docker logs adminpanel -f` |
+| Пересборка | `docker compose up -d --build` |
+| Смена пароля | `docker exec -it adminpanel python3 admin_cli.py password` |
+| Проверка порта | `sudo ss -tlnp \| grep 8888` |
+| Статус | `docker ps \| grep adminpanel` |
 
-```bash
-docker ps | grep adminpanel
-docker logs adminpanel --tail 100
-docker logs adminpanel -f
+---
+
+## Структура проекта
+
+```
+adminpanel/
+├── backend/              # FastAPI backend (Python)
+│   ├── main.py           # Основной API
+│   ├── auth_utils.py     # Аутентификация
+│   ├── bot_proxy.py      # Проксирование к боту
+│   └── ...
+├── frontend/             # React frontend (TypeScript)
+│   ├── src/
+│   │   ├── pages/        # Страницы
+│   │   ├── components/   # UI компоненты
+│   │   ├── api/          # API клиент
+│   │   └── ...
+│   ├── dist/             # Собранный фронтенд
+│   └── dist-lk/          # Собранный ЛК
+├── scripts/              # Скрипты установки/обновления
+├── data/                 # Данные (создаётся автоматически)
+├── docker-compose.yml    # Docker конфигурация
+├── Dockerfile            # Сборка образа
+└── VERSION               # Текущая версия
 ```
 
-### Проверка порта
+---
 
-```bash
-sudo ss -tlnp | grep 8888
-curl -I http://localhost:8888/webpanel/
-```
+## Безопасность
 
-### Частые проблемы
+- Панель слушает только `127.0.0.1:8888` — используйте reverse proxy с HTTPS
+- JWT токены с ограниченным сроком действия
+- 2FA через Telegram
+- Ролевая система доступа (5 уровней)
+- CSRF защита на мутирующих запросах
+- Все секреты в `data/` и исключены из git
 
-#### Контейнер не запускается
+---
+
+## Диагностика
+
+<details>
+<summary>Контейнер не запускается</summary>
 
 ```bash
 docker logs adminpanel --tail 50
-docker compose up  # без -d, чтобы видеть вывод
+docker compose up    # без -d для просмотра вывода
 ```
+</details>
 
-#### Frontend устарел после обновления
+<details>
+<summary>Фронтенд устарел после обновления</summary>
 
 ```bash
 docker exec adminpanel rm -rf /app/frontend/dist/assets
-docker cp /root/adminpanel/frontend/dist/. adminpanel:/app/frontend/dist/
+docker cp frontend/dist/. adminpanel:/app/frontend/dist/
 ```
+</details>
 
-#### Caddy / Nginx не проксирует
+<details>
+<summary>Reverse proxy не работает</summary>
 
 ```bash
 sudo caddy validate --config /etc/caddy/Caddyfile
 sudo nginx -t
 curl -I http://localhost:8888/webpanel/
 ```
+</details>
 
-#### ЛК не открывается по домену
+<details>
+<summary>ЛК не открывается по домену</summary>
 
 ```bash
 curl -H 'Host: lk.example.com' http://127.0.0.1:8888/ | head -5
 ```
 
-Убедитесь, что в reverse proxy передаётся `Host: $host`.
+Убедитесь, что reverse proxy передаёт `Host: $host`.
+</details>
 
 ---
 
-## 9. Удаление
+## Удаление
 
 ```bash
 cd /root/adminpanel
@@ -416,20 +380,14 @@ rm -rf /root/adminpanel
 
 ---
 
-## 10. Быстрые команды
+## Лицензия
 
-| Действие | Команда |
-|----------|---------|
-| Запуск | `docker compose up -d` |
-| Остановка | `docker compose down` |
-| Перезапуск | `docker compose restart` |
-| Логи (live) | `docker logs adminpanel -f` |
-| Пересборка | `docker compose up -d --build` |
-| Смена пароля | `docker exec -it adminpanel python3 admin_cli.py password` |
-| Проверка порта | `sudo ss -tlnp \| grep 8888` |
+MIT
 
 ---
 
-## Поддержка
+<div align="center">
 
-Telegram: [@spakio]
+**FastAPI** · **React** · **Docker**
+
+</div>

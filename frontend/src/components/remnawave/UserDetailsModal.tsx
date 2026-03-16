@@ -62,7 +62,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={copy}
-      className="ml-2 px-2.5 py-1 text-sm bg-white/5 hover:bg-white/10 text-secondary border border-default rounded-lg transition-colors"
+      className="ml-2 px-2.5 py-1 text-sm bg-overlay-xs hover:bg-overlay-sm text-secondary border border-default rounded-lg transition-colors"
     >
       {copied ? '✓' : 'Копировать'}
     </button>
@@ -254,7 +254,7 @@ export default function UserDetailsModal({
       ) : (
         <div className="space-y-6">
           {/* Статус и основное */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 sm:p-5 bg-white/5 border border-default rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 sm:p-5 bg-overlay-xs border border-default rounded-2xl">
             <StatusBadge status={user.status} />
             <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
               <div>
@@ -278,7 +278,7 @@ export default function UserDetailsModal({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Идентификаторы */}
-            <div className="bg-white/5 border border-default rounded-2xl p-4 sm:p-5">
+            <div className="bg-overlay-xs border border-default rounded-2xl p-4 sm:p-5">
               <h3 className="text-primary font-semibold mb-3 flex items-center gap-2 text-base sm:text-lg">
                 <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                 Идентификаторы
@@ -292,7 +292,7 @@ export default function UserDetailsModal({
             </div>
 
             {/* Подписка */}
-            <div className="bg-white/5 border border-default rounded-2xl p-4 sm:p-5">
+            <div className="bg-overlay-xs border border-default rounded-2xl p-4 sm:p-5">
               <h3 className="text-primary font-semibold mb-3 flex items-center gap-2 text-base sm:text-lg">
                 <span className="w-2 h-2 bg-[var(--accent)] rounded-full"></span>
                 Подписка
@@ -313,7 +313,7 @@ export default function UserDetailsModal({
           </div>
 
           {/* Клиент */}
-          <div className="bg-white/5 border border-default rounded-2xl p-4 sm:p-5">
+          <div className="bg-overlay-xs border border-default rounded-2xl p-4 sm:p-5">
             <h3 className="text-primary font-semibold mb-3 flex items-center gap-2 text-base sm:text-lg">
               <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
               Информация о клиенте
@@ -349,7 +349,7 @@ export default function UserDetailsModal({
           </div>
 
           {/* Ключи доступа */}
-          <div className="bg-white/5 border border-default rounded-2xl p-4 sm:p-5">
+          <div className="bg-overlay-xs border border-default rounded-2xl p-4 sm:p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-primary font-semibold flex items-center gap-2 text-base sm:text-lg">
                 <span className="w-2 h-2 bg-red-500 rounded-full"></span>
@@ -357,28 +357,28 @@ export default function UserDetailsModal({
               </h3>
               <button
                 onClick={() => setShowKeys(!showKeys)}
-                className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 text-secondary border border-default rounded-xl transition-colors"
+                className="px-3 py-1.5 text-sm bg-overlay-xs hover:bg-overlay-sm text-secondary border border-default rounded-xl transition-colors"
               >
                 {showKeys ? 'Скрыть' : 'Показать'}
               </button>
             </div>
             {showKeys ? (
               <div className="space-y-2">
-                <div className="flex items-center justify-between p-4 bg-black/20 border border-default rounded-xl">
+                <div className="flex items-center justify-between p-4 bg-overlay-sm border border-default rounded-xl">
                   <span className="text-muted text-sm sm:text-base">VLESS UUID</span>
                   <span className="font-mono text-sm sm:text-base text-primary flex items-center">
                     {(user as any).vlessUuid || '—'}
                     <CopyButton text={(user as any).vlessUuid || ''} />
                   </span>
                 </div>
-                <div className="flex items-center justify-between p-4 bg-black/20 border border-default rounded-xl">
+                <div className="flex items-center justify-between p-4 bg-overlay-sm border border-default rounded-xl">
                   <span className="text-muted text-sm sm:text-base">Trojan пароль</span>
                   <span className="font-mono text-sm sm:text-base text-primary flex items-center">
                     {(user as any).trojanPassword || '—'}
                     <CopyButton text={(user as any).trojanPassword || ''} />
                   </span>
                 </div>
-                <div className="flex items-center justify-between p-4 bg-black/20 border border-default rounded-xl">
+                <div className="flex items-center justify-between p-4 bg-overlay-sm border border-default rounded-xl">
                   <span className="text-muted text-sm sm:text-base">Shadowsocks пароль</span>
                   <span className="font-mono text-sm sm:text-base text-primary flex items-center">
                     {(user as any).ssPassword || '—'}

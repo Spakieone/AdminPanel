@@ -151,18 +151,18 @@ export default function RwHosts() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Хосты Remnawave</h1>
-          <p className="text-sm text-white/45 mt-0.5">Управление хостами и инбаундами</p>
+          <h1 className="text-xl font-bold text-primary">Хосты Remnawave</h1>
+          <p className="text-sm text-muted mt-0.5">Управление хостами и инбаундами</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => loadData()} disabled={loading} className="px-3 py-1.5 text-xs rounded-xl border border-white/10 text-white/50 hover:text-white/70 disabled:opacity-40">↻</button>
+          <button onClick={() => loadData()} disabled={loading} className="px-3 py-1.5 text-xs rounded-xl border border-default text-muted hover:text-dim disabled:opacity-40">↻</button>
           <button onClick={() => { setEditingHost(null); setShowHostModal(true) }} className="px-3 py-1.5 text-xs rounded-xl border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors">+ Создать хост</button>
         </div>
       </div>
 
       {error && (
         <div className="glass-card p-3 rounded-xl border border-red-500/20 text-red-400 text-sm">{error}
-          <button onClick={() => setError('')} className="ml-2 text-white/40 hover:text-white/60">✕</button>
+          <button onClick={() => setError('')} className="ml-2 text-muted hover:text-dim">✕</button>
         </div>
       )}
 
@@ -173,7 +173,7 @@ export default function RwHosts() {
           value={hostSearchQuery}
           onChange={(e) => setHostSearchQuery(e.target.value)}
           placeholder="Поиск по адресу, порту, примечанию..."
-          className="w-full sm:w-80 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-[var(--accent)]"
+          className="w-full sm:w-80 px-3 py-2 bg-overlay-xs border border-default rounded-xl text-primary text-sm placeholder:text-faint focus:outline-none focus:border-[var(--accent)]"
         />
       )}
 
@@ -188,23 +188,23 @@ export default function RwHosts() {
               </colgroup>
               <thead>
                 <tr className="border-b border-white/5">
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Адрес</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Порт</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Инбаунд</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Примечание</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Статус</th>
-                  <th className="px-3 py-3 text-right text-xs font-semibold text-white/50">Действия</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Адрес</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Порт</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Инбаунд</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Примечание</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Статус</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-muted">Действия</th>
                 </tr>
               </thead>
               <tbody>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-white/5">
-                    <td className="px-3 py-2.5"><div className="h-4 w-28 bg-white/5 rounded animate-pulse" /><div className="h-3 w-16 bg-white/5 rounded mt-1.5 animate-pulse" /></td>
-                    <td className="px-3 py-2.5"><div className="h-4 w-10 bg-white/5 rounded animate-pulse" /></td>
-                    <td className="px-3 py-2.5"><div className="h-4 w-20 bg-white/5 rounded animate-pulse" /></td>
-                    <td className="px-3 py-2.5"><div className="h-4 w-16 bg-white/5 rounded animate-pulse" /></td>
-                    <td className="px-3 py-2.5"><div className="h-7 w-14 bg-white/5 rounded-full animate-pulse" /></td>
-                    <td className="px-3 py-2.5"><div className="flex gap-1.5 justify-end"><div className="h-7 w-7 bg-white/5 rounded-lg animate-pulse" /><div className="h-7 w-7 bg-white/5 rounded-lg animate-pulse" /></div></td>
+                    <td className="px-3 py-2.5"><div className="h-4 w-28 bg-overlay-xs rounded animate-pulse" /><div className="h-3 w-16 bg-overlay-xs rounded mt-1.5 animate-pulse" /></td>
+                    <td className="px-3 py-2.5"><div className="h-4 w-10 bg-overlay-xs rounded animate-pulse" /></td>
+                    <td className="px-3 py-2.5"><div className="h-4 w-20 bg-overlay-xs rounded animate-pulse" /></td>
+                    <td className="px-3 py-2.5"><div className="h-4 w-16 bg-overlay-xs rounded animate-pulse" /></td>
+                    <td className="px-3 py-2.5"><div className="h-7 w-14 bg-overlay-xs rounded-full animate-pulse" /></td>
+                    <td className="px-3 py-2.5"><div className="flex gap-1.5 justify-end"><div className="h-7 w-7 bg-overlay-xs rounded-lg animate-pulse" /><div className="h-7 w-7 bg-overlay-xs rounded-lg animate-pulse" /></div></td>
                   </tr>
                 ))}
               </tbody>
@@ -215,17 +215,17 @@ export default function RwHosts() {
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="glass-card p-3 rounded-xl animate-pulse">
                 <div className="flex items-start justify-between mb-2">
-                  <div><div className="h-4 w-32 bg-white/5 rounded mb-2" /><div className="h-3 w-20 bg-white/5 rounded" /></div>
-                  <div className="h-7 w-14 bg-white/5 rounded-full" />
+                  <div><div className="h-4 w-32 bg-overlay-xs rounded mb-2" /><div className="h-3 w-20 bg-overlay-xs rounded" /></div>
+                  <div className="h-7 w-14 bg-overlay-xs rounded-full" />
                 </div>
-                <div className="space-y-1.5"><div className="h-3 w-40 bg-white/5 rounded" /><div className="h-3 w-32 bg-white/5 rounded" /></div>
-                <div className="mt-2 flex gap-2"><div className="flex-1 h-8 bg-white/5 rounded-lg" /><div className="flex-1 h-8 bg-white/5 rounded-lg" /></div>
+                <div className="space-y-1.5"><div className="h-3 w-40 bg-overlay-xs rounded" /><div className="h-3 w-32 bg-overlay-xs rounded" /></div>
+                <div className="mt-2 flex gap-2"><div className="flex-1 h-8 bg-overlay-xs rounded-lg" /><div className="flex-1 h-8 bg-overlay-xs rounded-lg" /></div>
               </div>
             ))}
           </div>
         </>
       ) : hosts.length === 0 ? (
-        <div className="text-center py-10 text-white/30">Нет хостов</div>
+        <div className="text-center py-10 text-faint">Нет хостов</div>
       ) : (
         <>
           {/* Desktop Table */}
@@ -241,12 +241,12 @@ export default function RwHosts() {
               </colgroup>
               <thead>
                 <tr className="border-b border-white/5">
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Адрес</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Порт</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Инбаунд</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Примечание</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold text-white/50">Статус</th>
-                  <th className="px-3 py-3 text-right text-xs font-semibold text-white/50">Действия</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Адрес</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Порт</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Инбаунд</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Примечание</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-muted">Статус</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-muted">Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -262,24 +262,24 @@ export default function RwHosts() {
                   return (
                     <tr key={key} className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors" style={{ animation: 'fadeInUp 0.25s ease-out both', animationDelay: `${index * 0.03}s` }}>
                       <td className="px-3 py-2.5">
-                        <div className="text-white text-sm font-mono">{host.address || '-'}</div>
-                        {host.id && <div className="text-white/25 text-xs mt-0.5">ID: {host.id}</div>}
+                        <div className="text-primary text-sm font-mono">{host.address || '-'}</div>
+                        {host.id && <div className="text-faint text-xs mt-0.5">ID: {host.id}</div>}
                       </td>
-                      <td className="px-3 py-2.5 text-white/60 text-sm">{host.port || '-'}</td>
+                      <td className="px-3 py-2.5 text-dim text-sm">{host.port || '-'}</td>
                       <td className="px-3 py-2.5">
                         {ib ? (
-                          <div className="text-white/60 text-sm">
+                          <div className="text-dim text-sm">
                             <div className="font-medium">{ib.tag || ib.name || ib.type || 'Unnamed'}</div>
-                            {ib.port && <div className="text-white/30 text-xs mt-0.5">:{ib.port}</div>}
+                            {ib.port && <div className="text-faint text-xs mt-0.5">:{ib.port}</div>}
                           </div>
                         ) : (
-                          <div className="text-white/30 text-sm italic">По умолчанию</div>
+                          <div className="text-faint text-sm italic">По умолчанию</div>
                         )}
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
                           {FlagComponent && <FlagComponent className="w-4 h-3 rounded-sm flex-shrink-0" />}
-                          <span className="text-white/60 text-sm truncate" title={remark}>{remark || '-'}</span>
+                          <span className="text-dim text-sm truncate" title={remark}>{remark || '-'}</span>
                         </div>
                       </td>
                       <td className="px-2 py-2.5">
@@ -316,9 +316,9 @@ export default function RwHosts() {
                 <div key={key} className="glass-card p-3 rounded-xl" style={{ animation: 'fadeInUp 0.3s ease-out both', animationDelay: `${index * 0.05}s` }}>
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <div className="text-white text-sm font-semibold font-mono mb-1">{host.address || '-'}</div>
-                      {host.id && <div className="text-white/25 text-[10px] mb-1">ID: {host.id}</div>}
-                      <div className="text-white/40 text-xs">Порт: {host.port || '-'}</div>
+                      <div className="text-primary text-sm font-semibold font-mono mb-1">{host.address || '-'}</div>
+                      {host.id && <div className="text-faint text-[10px] mb-1">ID: {host.id}</div>}
+                      <div className="text-muted text-xs">Порт: {host.port || '-'}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <NeoToggle checked={active} disabled={busy} onChange={() => !busy && toggleHost(host, key)} width={60} height={28} showStatus={false} />
@@ -327,17 +327,17 @@ export default function RwHosts() {
                   </div>
                   <div className="space-y-1.5 text-xs">
                     <div>
-                      <span className="text-white/40">Инбаунд:</span>
+                      <span className="text-muted">Инбаунд:</span>
                       {ib ? (
-                        <span className="text-white/60 ml-1">{ib.tag || ib.name || ib.type}{ib.port ? ` :${ib.port}` : ''}</span>
+                        <span className="text-dim ml-1">{ib.tag || ib.name || ib.type}{ib.port ? ` :${ib.port}` : ''}</span>
                       ) : (
-                        <span className="text-white/30 ml-1 italic">По умолчанию</span>
+                        <span className="text-faint ml-1 italic">По умолчанию</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-white/40">Примечание:</span>
+                      <span className="text-muted">Примечание:</span>
                       {FlagComponent && <FlagComponent className="w-4 h-3 rounded-sm flex-shrink-0" />}
-                      <span className="text-white/60">{remark}</span>
+                      <span className="text-dim">{remark}</span>
                     </div>
                   </div>
                   <div className="mt-2 flex gap-2">

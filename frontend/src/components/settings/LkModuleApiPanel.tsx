@@ -189,10 +189,10 @@ export default function LkModuleApiPanel() {
   return (
     <div className="glass-panel p-4 sm:p-6 mt-4 sm:mt-6" id="settings-section-lk-module-api">
       <div className="mb-4">
-        <h2 className="text-lg sm:text-xl font-bold text-white">LK Module API</h2>
+        <h2 className="text-lg sm:text-xl font-bold text-primary">LK Module API</h2>
         <p className="text-sm text-muted mt-1">
           Привязка ЛК к конкретному bot-профилю (если у тебя несколько ботов на разных серверах).
-          Все запросы `lk.nonotouch.com/api/lk/*` будут проксироваться в `botApiUrl` выбранного профиля.
+          Все запросы `lk.example.com/api/lk/*` будут проксироваться в `botApiUrl` выбранного профиля.
         </p>
       </div>
 
@@ -206,7 +206,7 @@ export default function LkModuleApiPanel() {
             <select
               value={botProfileId}
               onChange={(e) => setBotProfileId(e.target.value)}
-              className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-white"
+              className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-primary"
             >
               {profileOptions.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -236,13 +236,13 @@ export default function LkModuleApiPanel() {
             <div className="text-sm font-semibold text-primary">Ручной URL (опционально)</div>
             <div className="mt-2 text-xs text-muted">
               Используется только если привязка к профилю выключена. Пример: `http://127.0.0.1:7777/adminpanel/api` или
-              `https://bot.nonotouch.com/adminpanel/api`.
+              `https://bot.example.com/adminpanel/api`.
             </div>
             <div className="mt-3">
               <input
                 value={manualBaseUrl}
                 onChange={(e) => setManualBaseUrl(e.target.value)}
-                className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-white"
+                className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-primary"
                 placeholder="http://127.0.0.1:7777/adminpanel/api"
               />
             </div>
@@ -271,7 +271,7 @@ export default function LkModuleApiPanel() {
                 <input
                   value={smtpHost}
                   onChange={(e) => setSmtpHost(e.target.value)}
-                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-white text-sm"
+                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-primary text-sm"
                   placeholder="smtp.yandex.ru"
                 />
               </div>
@@ -281,7 +281,7 @@ export default function LkModuleApiPanel() {
                   type="number"
                   value={smtpPort}
                   onChange={(e) => setSmtpPort(e.target.value)}
-                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-white text-sm"
+                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-primary text-sm"
                   placeholder="587"
                 />
               </div>
@@ -290,7 +290,7 @@ export default function LkModuleApiPanel() {
                 <input
                   value={smtpUser}
                   onChange={(e) => setSmtpUser(e.target.value)}
-                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-white text-sm"
+                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-primary text-sm"
                   placeholder="noreply@example.com"
                 />
               </div>
@@ -302,7 +302,7 @@ export default function LkModuleApiPanel() {
                   type="password"
                   value={smtpPass}
                   onChange={(e) => setSmtpPass(e.target.value)}
-                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-white text-sm"
+                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-primary text-sm"
                   placeholder={smtpPassSet ? '••••••••' : 'app-password'}
                 />
               </div>
@@ -311,7 +311,7 @@ export default function LkModuleApiPanel() {
                 <input
                   value={smtpFrom}
                   onChange={(e) => setSmtpFrom(e.target.value)}
-                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-white text-sm"
+                  className="w-full px-4 py-2 bg-overlay-md border border-default rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-30 text-primary text-sm"
                   placeholder="Мой VPN <noreply@example.com>"
                 />
               </div>

@@ -8,6 +8,7 @@ type VersionInfo = {
   release_date?: string
   latest_release_date?: string | null
   error: string | null
+  update_url?: string
 }
 
 type Status = "idle" | "loading" | "done" | "error"
@@ -612,12 +613,12 @@ export default function Updates() {
           <VersionCard
             title="Панель управления" subtitle="Adminpanel + ЛК"
             icon={<PanelIcon />} info={panelInfo} status={panelStatus} onCheck={checkPanel}
-            updateUrl="https://github.com/Spakieone/AdminPanel/releases/latest"
+            updateUrl={panelInfo?.update_url}
           />
           <VersionCard
             title="API модуль бота" subtitle="Модуль интеграции"
             icon={<BotApiIcon />} info={botApiInfo} status={botApiStatus} onCheck={checkBotApi}
-            updateUrl="https://pocomacho.ru/solonetbot/modules/AdminPanel"
+            updateUrl={botApiInfo?.update_url}
           />
         </div>
         <UpdatePanel />

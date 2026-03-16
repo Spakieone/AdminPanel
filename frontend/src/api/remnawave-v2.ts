@@ -99,6 +99,9 @@ export const disableRwUser = (uuid: string, profileId?: string) =>
 export const resetRwUserTraffic = (uuid: string, profileId?: string) =>
   rwv2Post(`users/${uuid}/reset-traffic`, undefined, profileId)
 
+export const getRwSystemStats = (profileId?: string) =>
+  rwv2Get('system/stats', undefined, profileId)
+
 // ── Nodes ────────────────────────────────────────────────────────────────────
 
 export const getRwNodesV2 = (profileId?: string) =>
@@ -106,6 +109,9 @@ export const getRwNodesV2 = (profileId?: string) =>
 
 export const getRwNodesMetrics = (profileId?: string) =>
   rwv2Get('system/nodes/metrics', undefined, profileId)
+
+export const getRwNodesBandwidthRealtime = (profileId?: string) =>
+  rwv2Get('bandwidth-stats/nodes/realtime', undefined, profileId)
 
 export const createRwNode = (data: any, profileId?: string) =>
   rwv2Post('nodes', data, profileId)

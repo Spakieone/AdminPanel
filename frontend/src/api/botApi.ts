@@ -5,7 +5,6 @@ import { getAuthHeaders, refreshCsrfToken } from './client'
 
 import type {
   BotUser,
-  BotUserUpdateRequest,
   BotKey,
   BotKeyCreateRequest,
   BotKeyUpdateRequest,
@@ -126,23 +125,6 @@ export async function getBotUser(config: BotApiConfig, tgId: number): Promise<Bo
   // AdminPanel module API returns { ok: true, user: {...} }, older Bot API may return the user directly.
   if (data && typeof data === 'object' && 'user' in data) return data.user as BotUser;
   return data as BotUser;
-}
-
-export async function updateBotUser(config: BotApiConfig, tgId: number, data: BotUserUpdateRequest): Promise<BotUser> {
-  const baseUrl = getBotApiBase(config);
-  const params = getBotParams(config);
-  // Обновляем CSRF токен перед мутационной операцией
-  await refreshCsrfToken();
-  const headers = await getAuthHeaders(); // Используем getAuthHeaders для CSRF токена
-  const response = await fetch(`${baseUrl}/users/${tgId}?${params}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-    credentials: 'include'
-  });
-  const res: any = await handleBotResponse<any>(response);
-  if (res && typeof res === 'object' && 'user' in res) return res.user as BotUser;
-  return res as BotUser;
 }
 
 export async function deleteBotUser(config: BotApiConfig, tgId: number) {
@@ -669,7 +651,8 @@ export async function updateBotGift(config: BotApiConfig, id: number | string, d
   // Обновляем CSRF токен перед мутационной операцией
   await refreshCsrfToken();
   const headers = await getAuthHeaders(); // Используем getAuthHeaders для CSRF токена
-  const response = await fetch(`${baseUrl}/gifts/${id}?${params}`, {
+  const encodedId = encodeURIComponent(String(id));
+  const response = await fetch(`${baseUrl}/gifts/${encodedId}?${params}`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify(data),
@@ -684,7 +667,8 @@ export async function deleteBotGift(config: BotApiConfig, id: number | string) {
   // Обновляем CSRF токен перед мутационной операцией
   await refreshCsrfToken();
   const headers = await getAuthHeaders(); // Используем getAuthHeaders для CSRF токена
-  const response = await fetch(`${baseUrl}/gifts/${id}?${params}`, {
+  const encodedId = encodeURIComponent(String(id));
+  const response = await fetch(`${baseUrl}/gifts/${encodedId}?${params}`, {
     method: 'DELETE',
     headers,
     credentials: 'include'
@@ -962,24 +946,6 @@ export async function getPaymentProviders(config: BotApiConfig): Promise<string[
 // UTM / Tracking Sources - Users & Stats
 // -----------------------
 
-export async function getUtmUsers(config: BotApiConfig, sourceCode: string, page = 1, limit = 50): Promise<PaginatedResponse<any>> {
-  const baseUrl = getBotApiBase(config);
-  const params = getBotParams(config);
-  const response = await fetch(`${baseUrl}/tracking-sources/${encodeURIComponent(sourceCode)}/users?${params}&page=${page}&limit=${limit}`, {
-    headers: getBotHeaders(),
-  });
-  return handleBotResponse<PaginatedResponse<any>>(response);
-}
-
-export async function getUtmStats(config: BotApiConfig, sourceCode: string): Promise<any> {
-  const baseUrl = getBotApiBase(config);
-  const params = getBotParams(config);
-  const response = await fetch(`${baseUrl}/tracking-sources/${encodeURIComponent(sourceCode)}/stats?${params}`, {
-    headers: getBotHeaders(),
-  });
-  return handleBotResponse<any>(response);
-}
-
 // -----------------------
 // Module AdminPanel API (panel/*)
 // Bot module API (status, modules, systemd, logs, settings, broadcast)
@@ -1036,19 +1002,6 @@ export async function getSystemdStatus(config: BotApiConfig, unit: string): Prom
   const params = getBotParams(config)
   const response = await fetch(`${baseUrl}/systemd/status?${params}&unit=${encodeURIComponent(unit)}`, {
     headers: getBotHeaders(),
-  })
-  return handleBotResponse<any>(response)
-}
-
-export async function restartSystemdUnit(config: BotApiConfig, unit: string): Promise<any> {
-  const baseUrl = getBotApiBase(config)
-  const params = getBotParams(config)
-  await refreshCsrfToken()
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${baseUrl}/systemd/${encodeURIComponent(unit)}/restart?${params}`, {
-    method: 'POST',
-    headers,
-    credentials: 'include',
   })
   return handleBotResponse<any>(response)
 }
@@ -1160,19 +1113,6 @@ export async function patchBotModesSettings(config: BotApiConfig, payload: Recor
   return handleBotResponse<any>(response)
 }
 
-export async function toggleBotMode(config: BotApiConfig, key: string): Promise<any> {
-  const baseUrl = getBotApiBase(config)
-  const params = getBotParams(config)
-  await refreshCsrfToken()
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${baseUrl}/bot/settings/modes/${encodeURIComponent(key)}/toggle?${params}`, {
-    method: 'POST',
-    headers,
-    credentials: 'include',
-  })
-  return handleBotResponse<any>(response)
-}
-
 export async function patchBotNotificationsSettings(config: BotApiConfig, payload: Record<string, any>): Promise<any> {
   const baseUrl = getBotApiBase(config)
   const params = getBotParams(config)
@@ -1182,19 +1122,6 @@ export async function patchBotNotificationsSettings(config: BotApiConfig, payloa
     method: 'PATCH',
     headers,
     body: JSON.stringify(payload || {}),
-    credentials: 'include',
-  })
-  return handleBotResponse<any>(response)
-}
-
-export async function toggleBotNotification(config: BotApiConfig, key: string): Promise<any> {
-  const baseUrl = getBotApiBase(config)
-  const params = getBotParams(config)
-  await refreshCsrfToken()
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${baseUrl}/bot/settings/notifications/${encodeURIComponent(key)}/toggle?${params}`, {
-    method: 'POST',
-    headers,
     credentials: 'include',
   })
   return handleBotResponse<any>(response)
@@ -1271,14 +1198,16 @@ export async function takeUserBalance(
 }
 
 export async function setUserBalance(
-  _config: BotApiConfig,
+  config: BotApiConfig,
   tgId: number,
   amount: number,
   note?: string,
 ): Promise<{ ok: boolean; tg_id: number; balance: number; delta: number }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
   await refreshCsrfToken()
   const headers = await getAuthHeaders()
-  const response = await fetch(`/webpanel/api/users/${tgId}/balance/set`, {
+  const response = await fetch(`${baseUrl}/users/${tgId}/balance/set?${params}`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ amount, note }),
@@ -1504,7 +1433,8 @@ export interface PartnerStats {
 export interface Partner {
   tg_id: number
   balance: number
-  percent: number
+  percent: number | null
+  percent_custom: boolean
   code: string | null
   method: string | null
   referred_count: number
@@ -1547,6 +1477,163 @@ export async function getPartnersList(config: BotApiConfig, limit = 1000, offset
 // Получить топ партнёров по приглашениям
 export async function getTopPartners(config: BotApiConfig, limit = 5): Promise<Partner[]> {
   const data = await getPartnersList(config, limit, 0)
-  // Сортировка уже по referred_count DESC на сервере, но перестрахуемся
   return data.items.sort((a, b) => b.referred_count - a.referred_count).slice(0, limit)
+}
+
+// Заявки на вывод (admin)
+export interface WithdrawalItemBot {
+  id: number
+  tg_id: number
+  amount: number
+  method: string | null
+  destination: string | null
+  status: string
+  created_at: string | null
+}
+export interface WithdrawalsResponseBot {
+  ok: boolean
+  items: WithdrawalItemBot[]
+  total: number
+  pages: number
+  no_module?: boolean
+}
+
+export async function getBotPartnerWithdrawals(config: BotApiConfig, status: 'pending' | 'completed' | 'all', page = 1, limit = 25): Promise<WithdrawalsResponseBot> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  params.append('status', status)
+  params.append('page', page.toString())
+  params.append('limit', limit.toString())
+  const headers = getBotHeaders()
+  const response = await fetch(`${baseUrl}/partners/withdrawals?${params}`, { method: 'GET', headers, credentials: 'include' })
+  return handleBotResponse<WithdrawalsResponseBot>(response)
+}
+
+export async function botApproveWithdrawal(config: BotApiConfig, id: number): Promise<{ ok: boolean }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = getBotHeaders()
+  const response = await fetch(`${baseUrl}/partners/withdrawals/${id}?${params}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'approve' }), credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean }>(response)
+}
+
+export async function botRejectWithdrawal(config: BotApiConfig, id: number): Promise<{ ok: boolean; refunded?: number }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = getBotHeaders()
+  const response = await fetch(`${baseUrl}/partners/withdrawals/${id}?${params}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'reject' }), credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean; refunded?: number }>(response)
+}
+
+export async function botResetPartnerMethods(config: BotApiConfig): Promise<{ ok: boolean; reset_count: number }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = getBotHeaders()
+  const response = await fetch(`${baseUrl}/partners/reset-methods?${params}`, {
+    method: 'POST', headers, credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean; reset_count: number }>(response)
+}
+
+// ── Per-user partner ─────────────────────────────────────────────────────────
+
+export interface UserPartnerData {
+  ok: boolean
+  no_module?: boolean
+  partner_balance: number
+  partner_code: string | null
+  percent: number
+  percent_custom: boolean
+  default_percent: number
+  referred_count: number
+  who_invited: number | null
+  referral_link: string | null
+  payout_method: string | null
+  payout_method_label: string | null
+  requisites_masked: string | null
+  paid_today: number
+  paid_month: number
+  paid_total: number
+  pending_count: number
+  pending_amount: number
+}
+
+export async function getUserPartner(config: BotApiConfig, tgId: number): Promise<UserPartnerData> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = getBotHeaders()
+  const response = await fetch(`${baseUrl}/users/${tgId}/partner?${params}`, { method: 'GET', headers, credentials: 'include' })
+  return handleBotResponse<UserPartnerData>(response)
+}
+
+export async function setUserPartnerPercent(config: BotApiConfig, tgId: number, percent: number | null): Promise<{ ok: boolean }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${baseUrl}/users/${tgId}/partner/set-percent?${params}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ percent }), credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean }>(response)
+}
+
+export async function setUserPartnerCode(config: BotApiConfig, tgId: number, code: string | null): Promise<{ ok: boolean }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${baseUrl}/users/${tgId}/partner/set-code?${params}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }), credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean }>(response)
+}
+
+export async function resetUserPartner(config: BotApiConfig, tgId: number): Promise<{ ok: boolean }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${baseUrl}/users/${tgId}/partner/reset?${params}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({}), credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean }>(response)
+}
+
+export async function addUserPartnerBalance(config: BotApiConfig, tgId: number, amount: number): Promise<{ ok: boolean; partner_balance: number }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${baseUrl}/users/${tgId}/partner/add-balance?${params}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount }), credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean; partner_balance: number }>(response)
+}
+
+export async function subtractUserPartnerBalance(config: BotApiConfig, tgId: number, amount: number): Promise<{ ok: boolean; partner_balance: number }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${baseUrl}/users/${tgId}/partner/subtract-balance?${params}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount }), credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean; partner_balance: number }>(response)
+}
+
+export async function addUserPartnerReferral(config: BotApiConfig, tgId: number, referredTgId: number): Promise<{ ok: boolean }> {
+  const baseUrl = getBotApiBase(config)
+  const params = getBotParams(config)
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${baseUrl}/users/${tgId}/partner/add-referral?${params}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ referred_tg_id: referredTgId }), credentials: 'include',
+  })
+  return handleBotResponse<{ ok: boolean }>(response)
 }

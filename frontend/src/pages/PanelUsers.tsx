@@ -831,7 +831,7 @@ export default function PanelUsers({ embedded = false }: { embedded?: boolean } 
                 const roleKey = String(u.role || 'viewer').toLowerCase()
                 return (
                   <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4" onClick={() => setSelectedUser(null)}>
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                    <div className="absolute inset-0 bg-overlay-md backdrop-blur-sm" />
                     <div
                       className="relative w-full max-w-[480px] max-h-[85vh] overflow-y-auto rounded-2xl border border-default bg-[var(--bg-sidebar)] shadow-2xl"
                       onClick={(e) => e.stopPropagation()}

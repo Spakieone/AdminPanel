@@ -1,9 +1,10 @@
-import { useId, useState, useEffect } from 'react'
+import React, { useId, useState, useEffect } from 'react'
 import { getBotConfigAsync } from '../../utils/botConfig'
 import { createBotCoupon, updateBotCoupon } from '../../api/botApi'
 import type { BotCoupon } from '../../api/types'
 import ModalShell, { modalPrimaryButtonClass, modalSecondaryButtonClass } from '../common/ModalShell'
-import DarkSelect, { type DarkSelectGroup } from '../common/DarkSelect'
+
+type CouponType = 'balance' | 'days' | 'percent'
 
 interface CouponEditModalProps {
   editingCoupon?: BotCoupon
@@ -11,75 +12,96 @@ interface CouponEditModalProps {
   onSaved: () => void
 }
 
+const typeCards: { value: CouponType; label: string; desc: string; icon: React.ReactNode }[] = [
+  {
+    value: 'balance',
+    label: 'Баланс',
+    desc: 'Бонус на баланс',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    value: 'days',
+    label: 'Время',
+    desc: 'Дни подписки',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    value: 'percent',
+    label: 'Процент',
+    desc: 'Скидка на покупку',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z" />
+      </svg>
+    ),
+  },
+]
+
 export default function CouponEditModal({ editingCoupon, onClose, onSaved }: CouponEditModalProps) {
   const formId = useId()
-  const [formData, setFormData] = useState({
-    code: '',
-    balance: '',
-    days: '',
-    max_uses: ''
-  })
-  const [valueType, setValueType] = useState<'days' | 'balance'>('days')
+  const [couponType, setCouponType] = useState<CouponType>('balance')
+  const [code, setCode] = useState('')
+  const [balance, setBalance] = useState('')
+  const [days, setDays] = useState('')
+  const [percent, setPercent] = useState('')
+  const [maxDiscount, setMaxDiscount] = useState('')
+  const [minOrder, setMinOrder] = useState('')
+  const [maxUses, setMaxUses] = useState('')
+  const [newUsersOnly, setNewUsersOnly] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const valueTypeGroups = [
-    {
-      options: [
-        { value: 'days', label: 'Дни' },
-        { value: 'balance', label: 'Баланс' },
-      ],
-    },
-  ] satisfies DarkSelectGroup[]
-
   useEffect(() => {
     if (editingCoupon) {
-      // Определяем тип значения (дни или баланс)
-      const hasDays = editingCoupon.days !== undefined && editingCoupon.days !== null ||
-        (editingCoupon.duration_days !== undefined && editingCoupon.duration_days !== null) ||
-        (editingCoupon.duration !== undefined && editingCoupon.duration !== null)
-      
-      const hasBalance = editingCoupon.balance !== undefined && editingCoupon.balance !== null ||
-        (editingCoupon.amount !== undefined && editingCoupon.amount !== null) ||
-        (editingCoupon.bonus !== undefined && editingCoupon.bonus !== null) ||
-        (editingCoupon.balance_amount !== undefined && editingCoupon.balance_amount !== null)
-      
-      if (hasDays) {
-        setValueType('days')
-        const days = editingCoupon.days || editingCoupon.duration_days || editingCoupon.duration
-        setFormData({
-          code: editingCoupon.code || '',
-          balance: '',
-          days: days?.toString() || '',
-          max_uses: editingCoupon.max_uses?.toString() || editingCoupon.max_use?.toString() || editingCoupon.limit?.toString() || editingCoupon.max_count?.toString() || ''
-        })
+      const c = editingCoupon as any
+      setCode(c.code || '')
+
+      // Detect type
+      const hasPercent = c.percent !== undefined && c.percent !== null && Number(c.percent) > 0
+      const hasDays = (c.days !== undefined && c.days !== null && Number(c.days) > 0) ||
+        (c.duration_days !== undefined && c.duration_days !== null && Number(c.duration_days) > 0) ||
+        (c.duration !== undefined && c.duration !== null && Number(c.duration) > 0)
+      const hasBalance = (c.amount !== undefined && c.amount !== null && Number(c.amount) > 0) ||
+        (c.balance !== undefined && c.balance !== null && Number(c.balance) > 0) ||
+        (c.bonus !== undefined && c.bonus !== null && Number(c.bonus) > 0) ||
+        (c.balance_amount !== undefined && c.balance_amount !== null && Number(c.balance_amount) > 0)
+
+      if (hasPercent) {
+        setCouponType('percent')
+        setPercent(String(c.percent || ''))
+        setMaxDiscount(String(c.max_discount_amount || ''))
+        setMinOrder(String(c.min_order_amount || ''))
+      } else if (hasDays) {
+        setCouponType('days')
+        setDays(String(c.days || c.duration_days || c.duration || ''))
       } else if (hasBalance) {
-        setValueType('balance')
-        const balance = editingCoupon.balance || editingCoupon.amount || editingCoupon.bonus || editingCoupon.balance_amount
-        setFormData({
-          code: editingCoupon.code || '',
-          balance: balance?.toString() || '',
-          days: '',
-          max_uses: editingCoupon.max_uses?.toString() || editingCoupon.max_use?.toString() || editingCoupon.limit?.toString() || editingCoupon.max_count?.toString() || ''
-        })
+        setCouponType('balance')
+        setBalance(String(c.amount || c.balance || c.bonus || c.balance_amount || ''))
       } else {
-        // По умолчанию дни
-        setValueType('days')
-        setFormData({
-          code: editingCoupon.code || '',
-          balance: '',
-          days: '',
-          max_uses: editingCoupon.max_uses?.toString() || editingCoupon.max_use?.toString() || editingCoupon.limit?.toString() || editingCoupon.max_count?.toString() || ''
-        })
+        setCouponType('balance')
       }
+
+      const limit = c.max_uses ?? c.max_use ?? c.limit ?? c.max_count ?? c.usage_limit ?? ''
+      setMaxUses(String(limit))
+      setNewUsersOnly(Boolean(c.new_users_only))
     } else {
-      setValueType('days')
-      setFormData({
-        code: '',
-        balance: '',
-        days: '',
-        max_uses: ''
-      })
+      setCouponType('balance')
+      setCode('')
+      setBalance('')
+      setDays('')
+      setPercent('')
+      setMaxDiscount('')
+      setMinOrder('')
+      setMaxUses('')
+      setNewUsersOnly(false)
     }
   }, [editingCoupon])
 
@@ -96,49 +118,27 @@ export default function CouponEditModal({ editingCoupon, onClose, onSaved }: Cou
         return
       }
 
-      const couponData: {
-        code: string
-        days?: number
-        amount?: number
-        usage_limit: number
-        max_uses: number
-      } = {
-        code: formData.code,
-        usage_limit: 0,
-        max_uses: 0
+      const couponData: Record<string, any> = {
+        code,
+        usage_limit: maxUses ? parseInt(maxUses) : 0,
+        max_uses: maxUses ? parseInt(maxUses) : 0,
+        new_users_only: newUsersOnly,
       }
 
-      // Добавляем дни или баланс в зависимости от типа
-      // API требует: либо 'amount' (для баланса), либо 'days' (для дней), но не оба
-      if (valueType === 'days' && formData.days) {
-        couponData.days = parseInt(formData.days)
-        // Убеждаемся, что amount не отправляется
-        delete couponData.amount
-      } else if (valueType === 'balance' && formData.balance) {
-        // API ожидает поле 'amount' для баланса
-        couponData.amount = parseFloat(formData.balance)
-        // Убеждаемся, что days не отправляется
-        delete couponData.days
-      }
-
-      // Лимит использований - API требует поле usage_limit
-      if (formData.max_uses && formData.max_uses !== '0' && formData.max_uses.trim() !== '') {
-        couponData.usage_limit = parseInt(formData.max_uses)
-        // Также отправляем max_uses для совместимости
-        couponData.max_uses = parseInt(formData.max_uses)
-      } else {
-        // Если 0 или пусто - отправляем 0 для безлимита (API требует поле)
-        couponData.usage_limit = 0
-        couponData.max_uses = 0
+      if (couponType === 'balance') {
+        couponData.amount = balance ? parseFloat(balance) : 0
+      } else if (couponType === 'days') {
+        couponData.days = days ? parseInt(days) : 0
+      } else if (couponType === 'percent') {
+        couponData.percent = percent ? parseInt(percent) : 0
+        if (maxDiscount) couponData.max_discount_amount = parseInt(maxDiscount)
+        if (minOrder) couponData.min_order_amount = parseInt(minOrder)
       }
 
       if (editingCoupon) {
-        // API может принимать либо ID, либо код купона
-        // Приоритет: код купона (если есть), затем ID
-        const couponId = (editingCoupon.code || editingCoupon.id || editingCoupon.coupon_id) as string | number
-        if (!couponId) {
-          throw new Error('Не указан ID или код купона для обновления')
-        }
+        const c = editingCoupon as any
+        const couponId = (c.code || c.id || c.coupon_id) as string | number
+        if (!couponId) throw new Error('Не указан ID или код купона для обновления')
         await updateBotCoupon(config, couponId, couponData)
       } else {
         await createBotCoupon(config, couponData)
@@ -146,7 +146,6 @@ export default function CouponEditModal({ editingCoupon, onClose, onSaved }: Cou
 
       onSaved()
     } catch (err) {
-      // handleBotResponse уже обработал ошибку и выбросил Error с сообщением
       const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Ошибка сохранения купона')
       setError(errorMessage)
     } finally {
@@ -154,10 +153,12 @@ export default function CouponEditModal({ editingCoupon, onClose, onSaved }: Cou
     }
   }
 
+  const inputClass = "w-full px-3 py-2 rounded-lg border border-default bg-transparent text-primary text-sm placeholder:text-faint focus:outline-none focus:border-[var(--accent)] transition-colors"
+
   return (
     <ModalShell
       title={editingCoupon ? 'Редактирование купона' : 'Создание купона'}
-      subtitle="Купон даёт дни или бонус на баланс — выберите тип значения"
+      subtitle="Выберите тип купона и заполните параметры"
       onClose={onClose}
       closeButtonTone="danger"
       shellTone="neutral"
@@ -181,92 +182,161 @@ export default function CouponEditModal({ editingCoupon, onClose, onSaved }: Cou
       }
       footer={
         <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className={modalSecondaryButtonClass}
-          >
+          <button type="button" onClick={onClose} className={modalSecondaryButtonClass}>
             Отмена
           </button>
-          <button
-            type="submit"
-            form={formId}
-            disabled={loading}
-            className={modalPrimaryButtonClass}
-          >
+          <button type="submit" form={formId} disabled={loading} className={modalPrimaryButtonClass}>
             {loading ? 'Сохранение...' : 'Сохранить'}
           </button>
         </div>
       }
     >
-      <form id={formId} onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-
-          <div>
-            <label className="block text-sm font-medium text-dim mb-2">Код купона *</label>
-            <input
-              type="text"
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              required
-              className="w-full px-3 py-2 rounded-lg border border-default bg-transparent text-primary text-sm placeholder:text-faint"
-              placeholder="Например: PROMO2024"
-            />
+      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+        {/* Type selector cards */}
+        <div>
+          <label className="block text-sm font-medium text-dim mb-2">Тип купона</label>
+          <div className="grid grid-cols-3 gap-2">
+            {typeCards.map((t) => {
+              const active = couponType === t.value
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setCouponType(t.value)}
+                  className={`relative flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 transition-all text-center ${
+                    active
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                      : 'border-default bg-overlay-xs text-muted hover:bg-overlay-sm hover:text-primary'
+                  }`}
+                >
+                  <span className={active ? 'text-[var(--accent)]' : 'text-muted'}>{t.icon}</span>
+                  <span className="text-sm font-medium leading-tight">{t.label}</span>
+                  <span className="text-[11px] leading-tight opacity-70">{t.desc}</span>
+                </button>
+              )
+            })}
           </div>
+        </div>
 
+        {/* Code */}
+        <div>
+          <label className="block text-sm font-medium text-dim mb-2">Код купона *</label>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            required
+            className={inputClass}
+            placeholder="Например: PROMO2024"
+          />
+        </div>
+
+        {/* Type-specific fields */}
+        {couponType === 'balance' && (
           <div>
-            <label className="block text-sm font-medium text-dim mb-2">Тип значения</label>
-            <DarkSelect
-              value={valueType}
-              onChange={(v) => setValueType(v as 'days' | 'balance')}
-              groups={valueTypeGroups}
-              buttonClassName="w-full px-3 py-2 rounded-lg border border-default bg-transparent hover:bg-overlay-sm text-primary text-sm"
-            />
-          </div>
-
-          {valueType === 'days' ? (
-            <div>
-              <label className="block text-sm font-medium text-dim mb-2">Количество дней *</label>
-              <input
-                type="number"
-                value={formData.days}
-                onChange={(e) => setFormData({ ...formData, days: e.target.value })}
-                required={valueType === 'days'}
-                min="1"
-                className="w-full px-3 py-2 rounded-lg border border-default bg-transparent text-primary text-sm placeholder:text-faint"
-                placeholder="Например: 30"
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-dim mb-2">Сумма баланса (₽) *</label>
-              <input
-                type="number"
-                value={formData.balance}
-                onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
-                required={valueType === 'balance'}
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 rounded-lg border border-default bg-transparent text-primary text-sm placeholder:text-faint"
-                placeholder="Например: 100"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-dim mb-2">
-              Лимит использований <span className="text-muted text-xs">(0 = безлимит)</span>
-            </label>
+            <label className="block text-sm font-medium text-dim mb-2">Сумма баланса (₽) *</label>
             <input
               type="number"
-              value={formData.max_uses}
-              onChange={(e) => setFormData({ ...formData, max_uses: e.target.value })}
+              value={balance}
+              onChange={(e) => setBalance(e.target.value)}
+              required
               min="0"
-              className="w-full px-3 py-2 rounded-lg border border-default bg-transparent text-primary text-sm placeholder:text-faint"
-              placeholder="0"
+              step="0.01"
+              className={inputClass}
+              placeholder="Например: 100"
             />
           </div>
+        )}
+
+        {couponType === 'days' && (
+          <div>
+            <label className="block text-sm font-medium text-dim mb-2">Количество дней *</label>
+            <input
+              type="number"
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
+              required
+              min="1"
+              className={inputClass}
+              placeholder="Например: 30"
+            />
+          </div>
+        )}
+
+        {couponType === 'percent' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-dim mb-2">Процент скидки (%) *</label>
+              <input
+                type="number"
+                value={percent}
+                onChange={(e) => setPercent(e.target.value)}
+                required
+                min="1"
+                max="100"
+                className={inputClass}
+                placeholder="Например: 20"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-dim mb-2">
+                Макс. сумма скидки (₽) <span className="text-muted text-xs">(необязательно)</span>
+              </label>
+              <input
+                type="number"
+                value={maxDiscount}
+                onChange={(e) => setMaxDiscount(e.target.value)}
+                min="0"
+                className={inputClass}
+                placeholder="Без ограничения"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-dim mb-2">
+                Мин. сумма заказа (₽) <span className="text-muted text-xs">(необязательно)</span>
+              </label>
+              <input
+                type="number"
+                value={minOrder}
+                onChange={(e) => setMinOrder(e.target.value)}
+                min="0"
+                className={inputClass}
+                placeholder="Без ограничения"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Max uses */}
+        <div>
+          <label className="block text-sm font-medium text-dim mb-2">
+            Лимит использований <span className="text-muted text-xs">(0 = безлимит)</span>
+          </label>
+          <input
+            type="number"
+            value={maxUses}
+            onChange={(e) => setMaxUses(e.target.value)}
+            min="0"
+            className={inputClass}
+            placeholder="0"
+          />
+        </div>
+
+        {/* New users only toggle */}
+        <label className="flex items-center gap-3 cursor-pointer group">
+          <div className="relative">
+            <input
+              type="checkbox"
+              checked={newUsersOnly}
+              onChange={(e) => setNewUsersOnly(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 rounded-full transition-colors peer-checked:bg-[var(--accent)] bg-[var(--bg-overlay-md)] border border-default" />
+            <div className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform peer-checked:translate-x-4 shadow-sm" />
+          </div>
+          <span className="text-sm text-dim group-hover:text-primary transition-colors">Только для новых пользователей</span>
+        </label>
       </form>
     </ModalShell>
   )
 }
-

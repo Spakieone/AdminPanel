@@ -1,6 +1,6 @@
 services:
   adminpanel:
-    image: ghcr.io/spakieone/adminpanel:latest
+    image: ghcr.io/${GHCR_OWNER:-owner}/adminpanel:latest
     container_name: adminpanel
     restart: unless-stopped
     environment:

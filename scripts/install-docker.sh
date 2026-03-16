@@ -71,7 +71,7 @@ echo "  You need a GitHub Personal Access Token with 'read:packages' scope."
 echo "  Create: https://github.com/settings/tokens/new?scopes=read:packages"
 echo ""
 
-GHCR_OWNER="spakieone"
+GHCR_OWNER="${GHCR_OWNER:-}"
 GHCR_TOKEN=""
 
 # Load existing token
@@ -90,6 +90,15 @@ if [ -n "$GHCR_TOKEN" ]; then
   if [[ "${use_existing,,}" == "n" ]]; then
     GHCR_TOKEN=""
   fi
+fi
+
+if [ -z "$GHCR_OWNER" ]; then
+  read -rp "  Enter GHCR owner (GitHub username): " GHCR_OWNER
+fi
+
+if [ -z "$GHCR_OWNER" ]; then
+  echo "[ERROR] GHCR owner is required."
+  exit 1
 fi
 
 if [ -z "$GHCR_TOKEN" ]; then

@@ -34,12 +34,23 @@ interface Coupon {
   discount_type?: string
   discount_percent?: number
   discount_amount?: number
+  amount?: number
+  balance?: number
+  bonus?: number
+  balance_amount?: number
+  price?: number
   days?: number
   duration_days?: number
   duration?: number
+  percent?: number
+  max_discount_amount?: number
+  min_order_amount?: number
+  new_users_only?: boolean
   max_uses?: number
   used_count?: number
   uses_count?: number
+  usage_count?: number
+  usage_limit?: number
   valid_from?: string
   valid_until?: string
   expires_at?: string
@@ -636,107 +647,65 @@ export default function Coupons({
                           <tr>
                             <th className="px-3 py-3 text-left text-sm font-semibold">ID</th>
                             <th className="px-3 py-3 text-left text-sm font-semibold">Код</th>
-                            <th className="px-3 py-3 text-left text-sm font-semibold whitespace-nowrap">Сумма\Дни</th>
-                            <th className="px-3 py-3 text-left text-sm font-semibold whitespace-nowrap">Лимит</th>
+                            <th className="px-3 py-3 text-left text-sm font-semibold whitespace-nowrap">Тип</th>
+                            <th className="px-3 py-3 text-left text-sm font-semibold whitespace-nowrap">Значение</th>
                             <th className="px-3 py-3 text-left text-sm font-semibold whitespace-nowrap">Использовано</th>
                             <th className="px-3 py-3 text-right text-sm font-semibold whitespace-nowrap">Действия</th>
                           </tr>
                         </thead>
                       <tbody>
                         {(paginatedData as Coupon[]).map((coupon: Coupon, index) => {
-                          // Определяем скидку/дни из разных возможных полей - проверяем все варианты
-                          let discount: number | null = null
-                          let discountType: string | null = null
-                          
-                          // Проверяем все возможные поля для скидки
-                          if (coupon.discount !== undefined && coupon.discount !== null) {
-                            discount = Number(coupon.discount)
-                            discountType = coupon.discount_type || 'amount'
-                          } else if (coupon.discount_percent !== undefined && coupon.discount_percent !== null) {
-                            discount = Number(coupon.discount_percent)
-                            discountType = 'percent'
-                          } else if (coupon.discount_amount !== undefined && coupon.discount_amount !== null) {
-                            discount = Number(coupon.discount_amount)
-                            discountType = 'amount'
-                          } else if (coupon.amount !== undefined && coupon.amount !== null) {
-                            discount = Number(coupon.amount)
-                            discountType = 'amount'
-                          } else if (coupon.price !== undefined && coupon.price !== null) {
-                            discount = Number(coupon.price)
-                            discountType = 'amount'
+                          // Detect coupon type & value
+                          const pct = Number(coupon.percent || 0)
+                          const daysVal = Number(coupon.days || coupon.duration_days || coupon.duration || 0)
+                          const amountVal = Number(coupon.amount || coupon.balance || coupon.bonus || coupon.balance_amount || coupon.discount_amount || coupon.discount || coupon.price || 0)
+
+                          let typeLabel: string
+                          let typeColor: string
+                          let valueDisplay: string
+                          if (pct > 0) {
+                            typeLabel = 'Процент'
+                            typeColor = 'text-purple-400'
+                            const parts = [`${pct}%`]
+                            if (coupon.max_discount_amount) parts.push(`макс ${coupon.max_discount_amount} ₽`)
+                            if (coupon.min_order_amount) parts.push(`от ${coupon.min_order_amount} ₽`)
+                            valueDisplay = parts.join(' · ')
+                          } else if (daysVal > 0) {
+                            typeLabel = 'Время'
+                            typeColor = 'text-sky-400'
+                            valueDisplay = `${daysVal} дн`
+                          } else if (amountVal > 0) {
+                            typeLabel = 'Баланс'
+                            typeColor = 'text-emerald-400'
+                            valueDisplay = `${amountVal} ₽`
+                          } else {
+                            typeLabel = '-'
+                            typeColor = 'text-muted'
+                            valueDisplay = '-'
                           }
-                          
-                          // Проверяем все возможные поля для дней
-                          let days: number | null = null
-                          if (coupon.days !== undefined && coupon.days !== null) {
-                            days = Number(coupon.days)
-                          } else if (coupon.duration_days !== undefined && coupon.duration_days !== null) {
-                            days = Number(coupon.duration_days)
-                          } else if (coupon.duration !== undefined && coupon.duration !== null) {
-                            days = Number(coupon.duration)
+
+                          // Used count
+                          let usedCount = 0
+                          for (const f of ['used_count', 'uses_count', 'usage_count', 'used', 'count', 'times_used']) {
+                            if (f in coupon && coupon[f] != null) { usedCount = Number(coupon[f]); break }
                           }
-                          
-                          // Определяем использовано из разных полей - проверяем все варианты
-                          let usedCount: number | null = null
-                          // Проверяем все возможные варианты названий полей
-                          const usedFields = ['used_count', 'uses_count', 'used', 'count', 'usage_count', 'times_used', 'used_times']
-                          for (const field of usedFields) {
-                            if (field in coupon && coupon[field] !== undefined && coupon[field] !== null) {
-                              usedCount = Number(coupon[field])
-                              break
-                            }
-                          }
-                          // Если ничего не найдено, показываем 0
-                          if (usedCount === null) {
-                            usedCount = 0
-                          }
-                          
-                          // Определяем лимит - проверяем все варианты
+                          // Usage limit
                           let maxUses: number | null = null
-                          // Проверяем все возможные варианты названий полей
-                          const limitFields = ['max_uses', 'max_use', 'limit', 'max_count', 'usage_limit', 'max_usage', 'total_limit']
-                          for (const field of limitFields) {
-                            if (field in coupon && coupon[field] !== undefined && coupon[field] !== null) {
-                              const value = Number(coupon[field])
-                              // 0 может означать безлимит, но если это явно указано, используем значение
-                              maxUses = value
-                              break
-                            }
+                          for (const f of ['max_uses', 'max_use', 'limit', 'max_count', 'usage_limit']) {
+                            if (f in coupon && coupon[f] != null) { maxUses = Number(coupon[f]); break }
                           }
-                          
-                          // Форматируем значение (скидка или дни)
-                          const getValueDisplay = () => {
-                            if (discount !== null && discount !== 0) {
-                              return discountType === 'percent' || discountType === '%'
-                                ? `${discount}%`
-                                : `${discount} ₽`
-                            } else if (days !== null && days !== 0) {
-                              return `${days} дн`
-                            }
-                            return '-'
-                          }
-                          
+
                           const isLast = index === paginatedData.length - 1
                           const couponKey = coupon.id || coupon.coupon_id || index
                           return (
                             <React.Fragment key={couponKey}>
-                              <tr 
-                                className="transition-colors"
-                                style={{ 
-                                  
-                                  
-                                }}
-                                
-                                
-                              >
+                              <tr className="transition-colors">
                                 <td className="px-3 py-3 text-sm truncate" title={String(coupon.id || coupon.coupon_id || '-')}>{coupon.id || coupon.coupon_id || '-'}</td>
                                 <td className="px-3 py-3 text-sm font-medium truncate" title={coupon.code || '-'}>{coupon.code || '-'}</td>
-                                <td className="px-3 py-3 text-sm whitespace-nowrap">{getValueDisplay()}</td>
+                                <td className={`px-3 py-3 text-sm whitespace-nowrap font-medium ${typeColor}`}>{typeLabel}</td>
+                                <td className="px-3 py-3 text-sm whitespace-nowrap">{valueDisplay}</td>
                                 <td className="px-3 py-3 text-sm whitespace-nowrap">
-                                  {maxUses !== null && maxUses > 0 ? maxUses : (maxUses === 0 ? '0' : '∞')}
-                                </td>
-                                <td className="px-3 py-3 text-sm whitespace-nowrap">
-                                  {usedCount !== null ? usedCount : '-'}
+                                  {usedCount}{maxUses != null && maxUses > 0 ? ` / ${maxUses}` : ''}
                                 </td>
                                 <td className="px-2.5 py-2 pl-6">
                                   <div className="flex items-center justify-end gap-1.5 flex-shrink-0">
@@ -768,54 +737,49 @@ export default function Coupons({
                       {/* Mobile Cards */}
                       <div className="md:hidden space-y-2 p-2">
                       {(paginatedData as Coupon[]).map((coupon: Coupon) => {
-                        let discount: number | null = null
-                        let discountType: string | null = null
-                        
-                        if (coupon.discount !== undefined && coupon.discount !== null) {
-                          discount = Number(coupon.discount)
-                          discountType = coupon.discount_type || 'amount'
-                        } else if (coupon.discount_percent !== undefined && coupon.discount_percent !== null) {
-                          discount = Number(coupon.discount_percent)
-                          discountType = 'percent'
-                        } else if (coupon.discount_amount !== undefined && coupon.discount_amount !== null) {
-                          discount = Number(coupon.discount_amount)
-                          discountType = 'amount'
-                        } else if (coupon.amount !== undefined && coupon.amount !== null) {
-                          discount = Number(coupon.amount)
-                          discountType = 'amount'
+                        const pct = Number(coupon.percent || 0)
+                        const daysVal = Number(coupon.days || coupon.duration_days || coupon.duration || 0)
+                        const amountVal = Number(coupon.amount || coupon.balance || coupon.bonus || coupon.balance_amount || coupon.discount_amount || coupon.discount || coupon.price || 0)
+
+                        let typeLabel: string
+                        let typeColor: string
+                        let valueDisplay: string
+                        if (pct > 0) {
+                          typeLabel = 'Процент'
+                          typeColor = 'text-purple-400'
+                          valueDisplay = `${pct}%`
+                        } else if (daysVal > 0) {
+                          typeLabel = 'Время'
+                          typeColor = 'text-sky-400'
+                          valueDisplay = `${daysVal} дн`
+                        } else if (amountVal > 0) {
+                          typeLabel = 'Баланс'
+                          typeColor = 'text-emerald-400'
+                          valueDisplay = `${amountVal} ₽`
+                        } else {
+                          typeLabel = '-'
+                          typeColor = 'text-muted'
+                          valueDisplay = '-'
                         }
-                        
-                        let days: number | null = null
-                        if (coupon.days !== undefined && coupon.days !== null) {
-                          days = Number(coupon.days)
-                        } else if (coupon.duration_days !== undefined && coupon.duration_days !== null) {
-                          days = Number(coupon.duration_days)
-                        }
-                        
+
                         let usedCount = 0
-                        const usedFields = ['used_count', 'uses_count', 'used', 'count', 'usage_count']
-                        for (const field of usedFields) {
-                          if (field in coupon && coupon[field] !== undefined && coupon[field] !== null) {
-                            usedCount = Number(coupon[field])
-                            break
-                          }
+                        for (const f of ['used_count', 'uses_count', 'usage_count', 'used', 'count']) {
+                          if (f in coupon && coupon[f] != null) { usedCount = Number(coupon[f]); break }
                         }
-                        
                         let maxUses: number | null = null
-                        const limitFields = ['max_uses', 'max_use', 'limit', 'max_count', 'usage_limit']
-                        for (const field of limitFields) {
-                          if (field in coupon && coupon[field] !== undefined && coupon[field] !== null) {
-                            maxUses = Number(coupon[field])
-                            break
-                          }
+                        for (const f of ['max_uses', 'max_use', 'limit', 'max_count', 'usage_limit']) {
+                          if (f in coupon && coupon[f] != null) { maxUses = Number(coupon[f]); break }
                         }
-                        
+
                         return (
                           <div key={coupon.id || coupon.code || Math.random()} className="bg-overlay-xs backdrop-blur-sm rounded border border-default p-2">
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1">
                                 <div className="text-primary text-sm font-semibold mb-1">{coupon.code || '-'}</div>
-                                <div className="text-muted text-xs">ID: {coupon.id || '-'}</div>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="text-muted">ID: {coupon.id || '-'}</span>
+                                  <span className={`font-medium ${typeColor}`}>{typeLabel}</span>
+                                </div>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <EditButton
@@ -832,17 +796,12 @@ export default function Coupons({
                             </div>
                             <div className="space-y-1.5 text-xs">
                               <div>
-                                <span className="text-muted">Сумма/Дни:</span>
-                                <span className="text-dim ml-1">
-                                  {discount !== null ? (
-                                    discountType === 'percent' ? `${discount}%` : `${discount} ₽`
-                                  ) : '-'}
-                                  {days !== null ? ` / ${days} дн` : ''}
-                                </span>
+                                <span className="text-muted">Значение:</span>
+                                <span className="text-dim ml-1">{valueDisplay}</span>
                               </div>
                               <div>
                                 <span className="text-muted">Использовано:</span>
-                                <span className="text-dim ml-1">{usedCount} / {maxUses !== null ? maxUses : '∞'}</span>
+                                <span className="text-dim ml-1">{usedCount}{maxUses != null && maxUses > 0 ? ` / ${maxUses}` : ''}</span>
                               </div>
                             </div>
                           </div>

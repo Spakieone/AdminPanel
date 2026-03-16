@@ -1525,3 +1525,56 @@ export async function checkVersionUpdate(): Promise<VersionCheckResult> {
     return handleResponse<VersionCheckResult>(response);
 }
 
+// Partner withdrawals (admin)
+export interface WithdrawalItem {
+    id: number
+    tg_id: number
+    amount: number
+    method: string | null
+    destination: string | null
+    status: string
+    created_at: string | null
+}
+export interface WithdrawalsResponse {
+    ok: boolean
+    items: WithdrawalItem[]
+    total: number
+    pages: number
+    no_module?: boolean
+}
+
+export async function getPartnerWithdrawals(status: 'pending' | 'completed' | 'all', page = 1, limit = 25): Promise<WithdrawalsResponse> {
+    const response = await fetch(`${API_BASE}/api/partner-withdrawals?status=${status}&page=${page}&limit=${limit}`, {
+        headers: await getAuthHeaders(),
+        credentials: 'include',
+    });
+    return handleResponse<WithdrawalsResponse>(response);
+}
+
+export async function approveWithdrawal(id: number): Promise<{ ok: boolean }> {
+    const response = await fetch(`${API_BASE}/api/partner-withdrawals/${id}/approve`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: boolean }>(response);
+}
+
+export async function rejectWithdrawal(id: number): Promise<{ ok: boolean; refunded?: number }> {
+    const response = await fetch(`${API_BASE}/api/partner-withdrawals/${id}/reject`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: boolean; refunded?: number }>(response);
+}
+
+export async function resetPartnerMethods(): Promise<{ ok: boolean; reset_count: number }> {
+    const response = await fetch(`${API_BASE}/api/partner-reset-methods`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: boolean; reset_count: number }>(response);
+}
+

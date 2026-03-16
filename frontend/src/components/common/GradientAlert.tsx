@@ -118,7 +118,7 @@ export const GradientAlert = React.forwardRef<HTMLDivElement, GradientAlertProps
           <button
             onClick={onClose}
             aria-label="Закрыть"
-            className="absolute right-3 top-3 p-1 rounded-full text-muted/50 transition-colors hover:text-dim hover:bg-white/5"
+            className="absolute right-3 top-3 p-1 rounded-full text-muted/50 transition-colors hover:text-dim hover:bg-overlay-xs"
           >
             <XIcon className="h-4 w-4" />
           </button>

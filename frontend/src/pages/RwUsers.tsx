@@ -1,22 +1,29 @@
-import { useState, useEffect, useCallback } from 'react'
-import { getRwUsers, enableRwUser, disableRwUser, deleteRwUser, resetRwUserTraffic } from '../api/remnawave-v2'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { getRwUsers, getRwSystemStats, getRwNodesV2 } from '../api/remnawave-v2'
 import { useToastContext } from '../contexts/ToastContext'
 import { useRwProfile } from '../hooks/useRwProfile'
+import {
+  Search, RefreshCw, Filter, ChevronDown, ChevronUp,
+  ArrowUp, ArrowDown,
+} from 'lucide-react'
+import DarkSelect from '../components/common/DarkSelect'
+import * as Flags from 'country-flag-icons/react/3x2'
 
 type RwUser = {
   uuid: string
   username: string
   shortUuid?: string
+  telegramId?: number | null
   status: string
   usedTraffic: number
   trafficLimitBytes: number
   expireAt: string | null
-  lastActiveAt: string | null
   onlineAt: string | null
   createdAt: string
+  lastNodeUuid?: string | null
 }
 
-type Stats = { total: number; active: number; disabled: number; expired: number; online: number }
+type Stats = { total: number; active: number; disabled: number; limited: number; expired: number; online: number }
 
 function formatBytes(bytes: number): string {
   if (!bytes || bytes <= 0) return '0 B'
@@ -41,14 +48,36 @@ function timeAgo(s: string | null): string {
   return `${Math.floor(diff / 86400)}д назад`
 }
 
-function statusColor(status: string): string {
-  switch (status?.toLowerCase()) {
-    case 'active': return 'text-emerald-400 bg-emerald-400/10'
-    case 'disabled': return 'text-white/40 bg-white/5'
-    case 'expired': return 'text-amber-400 bg-amber-400/10'
-    case 'limited': return 'text-orange-400 bg-orange-400/10'
-    default: return 'text-white/40 bg-white/5'
+/** Сортировка с null/пустыми значениями в конец */
+function cmpNullable(a: string | null | undefined, b: string | null | undefined): number {
+  if (!a && !b) return 0
+  if (!a) return 1
+  if (!b) return -1
+  return a.localeCompare(b)
+}
+
+function FlagIcon({ code }: { code?: string | null }) {
+  const cc = String(code || '').trim().toUpperCase()
+  if (!cc) return null
+  const FlagComp = (Flags as any)[cc] as React.ComponentType<{ style?: React.CSSProperties; title?: string }>
+  if (!FlagComp) return <span className="text-[10px] font-mono text-muted">{cc}</span>
+  return (
+    <span className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[2px]" style={{ width: 18, height: 13 }}>
+      <FlagComp style={{ width: 18, height: 13, display: 'block' }} title={cc} />
+    </span>
+  )
+}
+
+function statusBadge(status: string) {
+  const s = status?.toLowerCase()
+  const cfg: Record<string, { label: string; cls: string }> = {
+    active: { label: 'Активен', cls: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+    disabled: { label: 'Отключён', cls: 'bg-red-500/20 text-red-400 border-red-500/30' },
+    expired: { label: 'Истёк', cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+    limited: { label: 'Лимит', cls: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
   }
+  const c = cfg[s] || { label: status || '—', cls: 'bg-white/10 text-[var(--text-muted)] border-white/10' }
+  return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${c.cls}`}>{c.label}</span>
 }
 
 function statusLabel(status: string): string {
@@ -61,6 +90,50 @@ function statusLabel(status: string): string {
   }
 }
 
+function TrafficBar({ used, limit, status }: { used: number; limit: number; status?: string }) {
+  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0
+  const isUnlimited = !limit || limit <= 0
+  const isLimited = status === 'limited'
+  const isDanger = isLimited || pct >= 90
+
+  const barBg = isUnlimited
+    ? 'from-sky-600/30 to-cyan-600/30 border-sky-500/25'
+    : isDanger
+    ? 'from-red-600/40 to-red-500/30 border-red-500/30'
+    : pct >= 70
+    ? 'from-amber-600/40 to-amber-500/30 border-amber-500/30'
+    : 'from-emerald-600/30 to-cyan-600/30 border-emerald-500/25'
+
+  const fillCls = isDanger ? 'bg-red-500/30' : pct >= 70 ? 'bg-amber-500/30' : 'bg-emerald-500/30'
+  const fillPct = isLimited ? 100 : pct
+
+  return (
+    <div className={`relative h-6 rounded-full overflow-hidden bg-gradient-to-r ${barBg} border`}>
+      {!isUnlimited && fillPct > 0 && (
+        <div className={`absolute inset-y-0 left-0 rounded-full ${fillCls}`} style={{ width: `${fillPct}%` }} />
+      )}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className={`text-xs font-medium drop-shadow-sm ${isDanger && !isUnlimited ? 'text-red-300' : 'text-[var(--text-primary)]'}`}>
+          {formatBytes(used)} / {isUnlimited ? '∞' : formatBytes(limit)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function OnlineIndicator({ onlineAt }: { onlineAt: string | null }) {
+  if (!onlineAt) return <span className="text-red-400 text-sm">Не подключался</span>
+  const diffH = (Date.now() - new Date(onlineAt).getTime()) / 3600000
+  const dotColor = diffH < 1 ? 'bg-emerald-500' : diffH < 24 ? 'bg-amber-500' : diffH < 168 ? 'bg-orange-500' : 'bg-gray-500'
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
+      <span className="text-[var(--text-secondary)] text-sm">{timeAgo(onlineAt)}</span>
+    </div>
+  )
+}
+
+
 function getPageNumbers(current: number, total: number): (number | '...')[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
   const pages: (number | '...')[] = []
@@ -72,237 +145,360 @@ function getPageNumbers(current: number, total: number): (number | '...')[] {
   return pages
 }
 
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'created_at', label: 'Дата создания' },
+  { value: 'username', label: 'Имя' },
+  { value: 'status', label: 'Статус' },
+  { value: 'used_traffic_bytes', label: 'Трафик' },
+  { value: 'online_at', label: 'Активность' },
+  { value: 'expire_at', label: 'Истекает' },
+]
+
 export default function RwUsers() {
   const toast = useToastContext()
   const { profileId } = useRwProfile()
-  const [users, setUsers] = useState<RwUser[]>([])
-  const [stats, setStats] = useState<Stats>({ total: 0, active: 0, disabled: 0, expired: 0, online: 0 })
+  const [allUsers, setAllUsers] = useState<RwUser[]>([])
+  const [stats, setStats] = useState<Stats>({ total: 0, active: 0, disabled: 0, limited: 0, expired: 0, online: 0 })
   const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
   const [perPage, setPerPage] = useState(50)
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState('created_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [showFilters, setShowFilters] = useState(false)
+  const [nodeMap, setNodeMap] = useState<Record<string, { name: string; countryCode?: string }>>({})
 
-  const load = useCallback(async (silent = false) => {
+  const loadNodes = useCallback(async () => {
+    try {
+      const data = await getRwNodesV2(profileId || undefined)
+      const resp = data?.response ?? data
+      const nodes: any[] = Array.isArray(resp) ? resp : (resp?.nodes ?? resp?.items ?? [])
+      const map: Record<string, { name: string; countryCode?: string }> = {}
+      for (const n of nodes) {
+        if (n.uuid && n.name) map[n.uuid] = { name: n.name, countryCode: n.countryCode }
+      }
+      setNodeMap(map)
+    } catch { /* тихо */ }
+  }, [profileId])
+
+  const loadStats = useCallback(async () => {
+    try {
+      const data = await getRwSystemStats(profileId || undefined)
+      const resp = data?.response ?? data
+      const sc = resp?.users?.statusCounts || {}
+      const os = resp?.onlineStats || {}
+      setStats({
+        total: resp?.users?.totalUsers ?? 0,
+        active: sc.ACTIVE ?? 0,
+        disabled: sc.DISABLED ?? 0,
+        limited: sc.LIMITED ?? 0,
+        expired: sc.EXPIRED ?? 0,
+        online: os.onlineNow ?? 0,
+      })
+    } catch { /* тихо */ }
+  }, [profileId])
+
+  const loadUsers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const data = await getRwUsers({ page, per_page: perPage, search: search || undefined, status: statusFilter || undefined }, profileId || undefined)
-      const list: RwUser[] = (data?.users ?? data?.response ?? []).map((u: any) => ({
-        uuid: u.uuid || u.id || '',
-        username: u.username || u.name || '',
-        shortUuid: u.shortUuid || u.short_uuid,
-        status: u.status || '',
-        usedTraffic: Number(u.usedTraffic ?? u.used_traffic ?? 0),
-        trafficLimitBytes: Number(u.trafficLimitBytes ?? u.traffic_limit_bytes ?? 0),
-        expireAt: u.expireAt ?? u.expire_at ?? null,
-        lastActiveAt: u.lastActiveAt ?? u.last_active_at ?? null,
-        onlineAt: u.onlineAt ?? u.online_at ?? null,
-        createdAt: u.createdAt ?? u.created_at ?? '',
-      }))
-      setUsers(list)
-      const total = data?.total ?? data?.meta?.total ?? list.length
-      setTotalCount(total)
-      setTotalPages(Math.max(1, Math.ceil(total / perPage)))
-      const s: Stats = {
-        total: data?.meta?.total ?? total,
-        active: data?.meta?.active ?? list.filter(u => u.status === 'active').length,
-        disabled: data?.meta?.disabled ?? list.filter(u => u.status === 'disabled').length,
-        expired: data?.meta?.expired ?? list.filter(u => u.status === 'expired').length,
-        online: data?.meta?.online ?? data?.onlineCount ?? 0,
-      }
-      setStats(s)
+      const data = await getRwUsers({
+        page: 1, size: 1000,
+        search: search || undefined,
+        status: statusFilter ? statusFilter.toUpperCase() : undefined,
+      } as any, profileId || undefined)
+      const resp = data?.response ?? data
+      const rawUsers: any[] = Array.isArray(resp) ? resp : (resp?.users ?? resp?.items ?? [])
+      const list: RwUser[] = rawUsers.map((u: any) => {
+        const ut = u.userTraffic || {}
+        return {
+          uuid: u.uuid || u.id || '',
+          username: u.username || u.name || '',
+          shortUuid: u.shortUuid || u.short_uuid,
+          telegramId: u.telegramId ?? u.telegram_id ?? null,
+          status: (u.status || '').toLowerCase(),
+          usedTraffic: Number(ut.usedTrafficBytes ?? u.usedTrafficBytes ?? u.usedTraffic ?? u.used_traffic_bytes ?? 0),
+          trafficLimitBytes: Number(u.trafficLimitBytes ?? u.traffic_limit_bytes ?? 0),
+          expireAt: u.expireAt ?? u.expire_at ?? null,
+          onlineAt: ut.onlineAt ?? u.onlineAt ?? u.online_at ?? null,
+          createdAt: u.createdAt ?? u.created_at ?? '',
+          lastNodeUuid: ut.lastConnectedNodeUuid ?? u.lastConnectedNodeUuid ?? null,
+        }
+      })
+      setAllUsers(list)
     } catch (e: any) {
       if (!silent) toast.showError('Ошибка', e?.message || 'Не удалось загрузить пользователей')
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [page, perPage, search, statusFilter, profileId])
+  }, [search, statusFilter, profileId])
 
-  useEffect(() => { load() }, [load])
-
-  // Auto-refresh every 30s
+  useEffect(() => { loadUsers(); loadStats(); loadNodes() }, [loadUsers, loadStats, loadNodes])
   useEffect(() => {
-    const interval = setInterval(() => load(true), 30000)
+    const interval = setInterval(() => { loadUsers(true); loadStats() }, 30000)
     return () => clearInterval(interval)
-  }, [load])
+  }, [loadUsers, loadStats])
+
+  // Клиентская сортировка
+  const sortedUsers = useMemo(() => {
+    const sorted = [...allUsers]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortBy) {
+        case 'username': cmp = a.username.localeCompare(b.username); break
+        case 'status': cmp = a.status.localeCompare(b.status); break
+        case 'used_traffic_bytes': {
+          const pctA = a.trafficLimitBytes > 0 ? a.usedTraffic / a.trafficLimitBytes : -1
+          const pctB = b.trafficLimitBytes > 0 ? b.usedTraffic / b.trafficLimitBytes : -1
+          cmp = pctA - pctB
+          break
+        }
+        case 'online_at': cmp = cmpNullable(a.onlineAt, b.onlineAt); break
+        case 'expire_at': cmp = cmpNullable(a.expireAt, b.expireAt); break
+        case 'created_at': default: cmp = cmpNullable(a.createdAt, b.createdAt); break
+      }
+      return sortOrder === 'desc' ? -cmp : cmp
+    })
+    return sorted
+  }, [allUsers, sortBy, sortOrder])
+
+  // Клиентская пагинация
+  const totalCount = sortedUsers.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / perPage))
+  const pagedUsers = useMemo(() => {
+    const start = (page - 1) * perPage
+    return sortedUsers.slice(start, start + perPage)
+  }, [sortedUsers, page, perPage])
 
   const handleSearch = (v: string) => { setSearch(v); setPage(1) }
-  const handleStatus = (v: string) => { setStatusFilter(v === statusFilter ? '' : v); setPage(1) }
   const handlePerPage = (v: number) => { setPerPage(v); setPage(1) }
-
-  const doAction = async (uuid: string, action: 'enable' | 'disable' | 'reset' | 'delete') => {
-    setActionLoading(`${uuid}:${action}`)
-    try {
-      const pid = profileId || undefined
-      if (action === 'enable') await enableRwUser(uuid, pid)
-      else if (action === 'disable') await disableRwUser(uuid, pid)
-      else if (action === 'reset') await resetRwUserTraffic(uuid, pid)
-      else if (action === 'delete') { await deleteRwUser(uuid, pid); setConfirmDelete(null) }
-      toast.showSuccess('Готово', '')
-      load(true)
-    } catch (e: any) {
-      toast.showError('Ошибка', e?.message || 'Не удалось выполнить действие')
-    } finally {
-      setActionLoading(null)
-    }
+  const handleSort = (field: string) => {
+    if (sortBy === field) { setSortOrder(o => o === 'asc' ? 'desc' : 'asc') }
+    else { setSortBy(field); setSortOrder('desc') }
+    setPage(1)
   }
 
-  const StatCard = ({ label, value, color }: { label: string; value: number; color: string }) => (
-    <div className="glass-card p-4 rounded-xl">
-      <div className={`text-2xl font-bold ${color}`}>{value.toLocaleString()}</div>
-      <div className="text-xs text-white/45 mt-1">{label}</div>
-    </div>
-  )
 
   const from = (page - 1) * perPage + 1
   const to = Math.min(page * perPage, totalCount)
+  const activeFilterCount = (statusFilter ? 1 : 0)
 
   return (
     <div className="space-y-5">
+      {/* Заголовок */}
       <div>
-        <h1 className="text-xl font-bold text-white">Пользователи Remnawave</h1>
-        <p className="text-sm text-white/45 mt-0.5">VPN пользователи с трафиком и статусами</p>
+        <h1 className="text-xl font-bold text-primary">Пользователи Remnawave</h1>
       </div>
 
-      {/* Stats */}
+      {/* Статистика */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Всего', value: stats.total, color: 'text-white' },
+          { label: 'Всего', value: stats.total, color: 'text-primary' },
           { label: 'Активных', value: stats.active, color: 'text-emerald-400' },
-          { label: 'Отключённых', value: stats.disabled, color: 'text-white/40' },
+          { label: 'Отключённых', value: stats.disabled, color: 'text-red-400' },
           { label: 'Истёкших', value: stats.expired, color: 'text-amber-400' },
           { label: 'Онлайн', value: stats.online, color: 'text-sky-400' },
         ].map((s, i) => (
           <div key={s.label} style={{ animation: 'fadeInUp 0.3s ease-out both', animationDelay: `${i * 0.06}s` }}>
-            <StatCard label={s.label} value={s.value} color={s.color} />
+            <div className="rounded-2xl border border-default bg-overlay-xs p-4">
+              <div className={`text-4xl font-bold ${s.color}`}>{s.value.toLocaleString()}</div>
+              <div className="text-xs text-muted mt-1">{s.label}</div>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <input
-          type="text"
-          placeholder="Поиск по имени, email..."
-          value={search}
-          onChange={e => handleSearch(e.target.value)}
-          className="flex-1 min-w-48 px-3 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent)]"
-        />
-        {['active', 'disabled', 'expired'].map(s => (
+      {/* Поиск + Фильтры + Сортировка */}
+      <div className="rounded-2xl border border-default bg-overlay-xs p-4 space-y-3">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input
+            type="text"
+            placeholder="Поиск по имени, email, UUID..."
+            value={search}
+            onChange={e => handleSearch(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 text-sm rounded-xl bg-overlay-sm border border-default text-primary placeholder:text-muted focus:outline-none focus:border-[var(--accent)]"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            key={s}
-            onClick={() => handleStatus(s)}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-              statusFilter === s
-                ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
-                : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/70'
+            onClick={() => setShowFilters(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl border transition-colors ${
+              activeFilterCount > 0 ? 'border-[var(--accent)]/50 text-[var(--accent)]' : 'border-default text-muted hover:text-primary'
             }`}
           >
-            {statusLabel(s)}
+            <Filter size={13} />
+            Фильтры
+            {activeFilterCount > 0 && (
+              <span className="bg-[var(--accent)] text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{activeFilterCount}</span>
+            )}
+            {showFilters ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
-        ))}
-        <button
-          onClick={() => load()}
-          disabled={loading}
-          className="px-3 py-1.5 text-xs rounded-lg border border-white/10 text-white/50 hover:text-white/70 disabled:opacity-40"
-        >
-          ↻ Обновить
-        </button>
+
+          <div className="w-px h-5 bg-[var(--border-default)] hidden sm:block" />
+
+          <button
+            onClick={() => { setSortOrder(o => o === 'desc' ? 'asc' : 'desc'); setPage(1) }}
+            className="w-8 h-8 flex items-center justify-center rounded-xl border border-default text-[var(--accent)] hover:bg-overlay-sm transition-colors"
+            title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
+          >
+            {sortOrder === 'desc' ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
+          </button>
+
+          <DarkSelect
+            value={sortBy}
+            onChange={v => { setSortBy(v); setPage(1) }}
+            groups={[{ options: SORT_OPTIONS.map(o => ({ value: o.value, label: o.label })) }]}
+            buttonClassName="px-3 py-1.5 text-xs rounded-xl bg-overlay-sm border border-default text-primary"
+          />
+
+          <button
+            onClick={() => { loadUsers(); loadStats() }}
+            disabled={loading}
+            className="w-8 h-8 flex items-center justify-center rounded-xl border border-default text-muted hover:text-primary disabled:opacity-40 transition-colors"
+            title="Обновить"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {showFilters && (
+          <div className="pt-3 border-t border-default space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="text-[10px] font-semibold text-muted uppercase tracking-widest mb-1 block">Статус</label>
+                <DarkSelect
+                  value={statusFilter || '_all'}
+                  onChange={v => { setStatusFilter(v === '_all' ? '' : v); setPage(1) }}
+                  groups={[{ options: [
+                    { value: '_all', label: 'Все статусы' },
+                    { value: 'active', label: 'Активен' },
+                    { value: 'disabled', label: 'Отключён' },
+                    { value: 'limited', label: 'Лимит' },
+                    { value: 'expired', label: 'Истёк' },
+                  ] }]}
+                  buttonClassName="w-full px-3 py-1.5 text-xs rounded-xl bg-overlay-sm border border-default text-primary"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-muted uppercase tracking-widest mb-1 block">На странице</label>
+                <DarkSelect
+                  value={String(perPage)}
+                  onChange={v => handlePerPage(Number(v))}
+                  groups={[{ options: [10, 25, 50, 100].map(n => ({ value: String(n), label: String(n) })) }]}
+                  buttonClassName="w-full px-3 py-1.5 text-xs rounded-xl bg-overlay-sm border border-default text-primary"
+                />
+              </div>
+            </div>
+            {(statusFilter || search) && (
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs text-muted">
+                  Найдено: <span className="font-semibold text-primary">{totalCount.toLocaleString()}</span> пользователей
+                </span>
+                <button
+                  onClick={() => { setSearch(''); setStatusFilter(''); setPage(1) }}
+                  className="text-xs text-[var(--accent)] hover:opacity-75"
+                >
+                  Сбросить фильтры
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!showFilters && statusFilter && (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-[11px] text-[var(--accent)]">
+              Статус: {statusLabel(statusFilter)}
+              <button onClick={() => { setStatusFilter(''); setPage(1) }} className="hover:opacity-75 ml-0.5">✕</button>
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="glass-card rounded-xl overflow-hidden">
+      {/* Таблица */}
+      <div className="rounded-2xl border border-default bg-overlay-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '19%' }} />
+              <col style={{ width: '13%' }} />
+              <col style={{ width: '13%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '11%' }} />
+            </colgroup>
             <thead>
-              <tr className="border-b border-white/8 text-white/40 text-xs uppercase tracking-wide">
-                <th className="px-4 py-3 text-left">Пользователь</th>
-                <th className="px-4 py-3 text-left">Статус</th>
-                <th className="px-4 py-3 text-left">Трафик</th>
-                <th className="px-4 py-3 text-left">Истекает</th>
-                <th className="px-4 py-3 text-left">Последняя активность</th>
-                <th className="px-4 py-3 text-right">Действия</th>
+              <tr className="border-b border-default">
+                {[
+                  { label: 'Пользователь', field: 'username' },
+                  { label: 'Статус', field: 'status' },
+                  { label: 'Трафик', field: 'used_traffic_bytes' },
+                  { label: 'Нода', field: '' },
+                  { label: 'Активность', field: 'online_at' },
+                  { label: 'Истекает', field: 'expire_at' },
+                  { label: 'Создан', field: 'created_at' },
+                ].map((col, ci) => (
+                  <th key={ci} className="px-3 py-3 text-left">
+                    {col.field ? (
+                      <button
+                        onClick={() => handleSort(col.field)}
+                        className={`flex items-center gap-1 text-sm font-semibold uppercase tracking-wider transition-colors ${
+                          sortBy === col.field ? 'text-[var(--accent)]' : 'text-muted hover:text-primary'
+                        }`}
+                      >
+                        {col.label}
+                        {sortBy === col.field && (sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                      </button>
+                    ) : (
+                      <span className="text-sm font-semibold text-muted uppercase tracking-wider">{col.label}</span>
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-b border-white/5">
-                    <td className="px-4 py-3"><div className="h-4 w-28 bg-white/5 rounded animate-pulse" style={{ animationDelay: `${i * 0.05}s` }} /><div className="h-3 w-16 bg-white/5 rounded animate-pulse mt-1.5" /></td>
-                    <td className="px-4 py-3"><div className="h-5 w-16 bg-white/5 rounded-full animate-pulse" /></td>
-                    <td className="px-4 py-3"><div className="h-3 w-20 bg-white/5 rounded animate-pulse" /><div className="h-1 w-24 bg-white/5 rounded-full mt-2 animate-pulse" /></td>
-                    <td className="px-4 py-3"><div className="h-3 w-16 bg-white/5 rounded animate-pulse" /></td>
-                    <td className="px-4 py-3"><div className="h-3 w-20 bg-white/5 rounded animate-pulse" /></td>
-                    <td className="px-4 py-3"><div className="flex gap-1.5 justify-end"><div className="h-6 w-10 bg-white/5 rounded-lg animate-pulse" /><div className="h-6 w-6 bg-white/5 rounded-lg animate-pulse" /><div className="h-6 w-6 bg-white/5 rounded-lg animate-pulse" /></div></td>
+                  <tr key={i} className="border-b border-default">
+                    <td className="px-3 py-3"><div className="h-4 w-28 bg-overlay-md rounded animate-pulse" /><div className="h-3 w-16 bg-overlay-md rounded animate-pulse mt-1.5" /></td>
+                    <td className="px-3 py-3"><div className="h-5 w-16 bg-overlay-md rounded-full animate-pulse" /></td>
+                    <td className="px-3 py-3"><div className="h-6 w-full bg-overlay-md rounded-full animate-pulse" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-16 bg-overlay-md rounded animate-pulse" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-20 bg-overlay-md rounded animate-pulse" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-16 bg-overlay-md rounded animate-pulse" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-16 bg-overlay-md rounded animate-pulse" /></td>
                   </tr>
                 ))
-              ) : users.length === 0 ? (
+              ) : pagedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-white/30 text-sm">
+                  <td colSpan={7} className="px-4 py-10 text-center text-muted text-sm">
                     {search || statusFilter ? 'Ничего не найдено' : 'Нет пользователей'}
                   </td>
                 </tr>
-              ) : users.map((u, i) => {
-                const usedPct = u.trafficLimitBytes > 0 ? Math.min(100, (u.usedTraffic / u.trafficLimitBytes) * 100) : 0
-                const isActing = actionLoading?.startsWith(u.uuid)
+              ) : pagedUsers.map((u, i) => {
+                const nodeInfo = u.lastNodeUuid ? nodeMap[u.lastNodeUuid] || null : null
                 return (
-                  <tr key={u.uuid} className="border-b border-white/5 hover:bg-white/3 transition-colors" style={{ animation: 'fadeInUp 0.25s ease-out both', animationDelay: `${i * 0.03}s` }}>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-white">{u.username}</div>
-                      {u.shortUuid && <div className="text-xs text-white/30 font-mono">{u.shortUuid}</div>}
+                  <tr key={u.uuid} className="border-b border-default last:border-b-0 hover:bg-overlay-sm transition-colors" style={{ animation: 'fadeInUp 0.25s ease-out both', animationDelay: `${i * 0.03}s` }}>
+                    <td className="px-3 py-3">
+                      <div className="font-medium text-primary text-sm truncate">{u.username}</div>
+                      {u.telegramId && <div className="text-xs text-muted truncate">TG: {u.telegramId}</div>}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor(u.status)}`}>
-                        {statusLabel(u.status)}
-                      </span>
+                    <td className="px-3 py-3">{statusBadge(u.status)}</td>
+                    <td className="px-3 py-3">
+                      <TrafficBar used={u.usedTraffic} limit={u.trafficLimitBytes} status={u.status} />
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="text-white/70 text-xs">
-                        {formatBytes(u.usedTraffic)}
-                        {u.trafficLimitBytes > 0 && <span className="text-white/35"> / {formatBytes(u.trafficLimitBytes)}</span>}
-                      </div>
-                      {u.trafficLimitBytes > 0 && (
-                        <div className="mt-1 h-1 w-24 rounded-full bg-white/10 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${usedPct > 90 ? 'bg-red-500' : usedPct > 70 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                            style={{ width: `${usedPct}%` }}
-                          />
-                        </div>
-                      )}
+                    <td className="px-3 py-3">
+                      {nodeInfo
+                        ? <span className="flex items-center gap-1.5 text-secondary text-sm truncate"><FlagIcon code={nodeInfo.countryCode} /><span className="truncate">{nodeInfo.name}</span></span>
+                        : <span className="text-muted text-sm">—</span>
+                      }
                     </td>
-                    <td className="px-4 py-3 text-white/50 text-xs">{formatDate(u.expireAt)}</td>
-                    <td className="px-4 py-3 text-white/50 text-xs">{timeAgo(u.lastActiveAt)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1.5 justify-end">
-                        {u.status === 'active' ? (
-                          <button
-                            onClick={() => doAction(u.uuid, 'disable')}
-                            disabled={!!isActing}
-                            className="px-2 py-1 text-xs rounded-lg border border-white/10 text-white/50 hover:border-amber-500/40 hover:text-amber-400 disabled:opacity-40 transition-colors"
-                          >Откл</button>
-                        ) : (
-                          <button
-                            onClick={() => doAction(u.uuid, 'enable')}
-                            disabled={!!isActing}
-                            className="px-2 py-1 text-xs rounded-lg border border-white/10 text-white/50 hover:border-emerald-500/40 hover:text-emerald-400 disabled:opacity-40 transition-colors"
-                          >Вкл</button>
-                        )}
-                        <button
-                          onClick={() => doAction(u.uuid, 'reset')}
-                          disabled={!!isActing}
-                          className="px-2 py-1 text-xs rounded-lg border border-white/10 text-white/50 hover:border-sky-500/40 hover:text-sky-400 disabled:opacity-40 transition-colors"
-                        >↺</button>
-                        <button
-                          onClick={() => setConfirmDelete(u.uuid)}
-                          disabled={!!isActing}
-                          className="px-2 py-1 text-xs rounded-lg border border-white/10 text-white/50 hover:border-red-500/40 hover:text-red-400 disabled:opacity-40 transition-colors"
-                        >✕</button>
-                      </div>
-                    </td>
+                    <td className="px-3 py-3"><OnlineIndicator onlineAt={u.onlineAt} /></td>
+                    <td className="px-3 py-3 text-secondary text-sm">{formatDate(u.expireAt)}</td>
+                    <td className="px-3 py-3 text-secondary text-sm">{formatDate(u.createdAt)}</td>
                   </tr>
                 )
               })}
@@ -310,28 +506,27 @@ export default function RwUsers() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Пагинация */}
         {totalPages > 1 && (
-          <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/8" style={{ animation: 'fadeIn 0.3s ease-out both', animationDelay: '0.15s' }}>
-            <div className="flex items-center gap-3 text-xs text-white/35">
+          <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-default">
+            <div className="flex items-center gap-3 text-xs text-muted">
               <span>{from}–{to} из {totalCount.toLocaleString()}</span>
-              <select
-                value={perPage}
-                onChange={e => handlePerPage(Number(e.target.value))}
-                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white/60 text-xs focus:outline-none focus:border-[var(--accent)] cursor-pointer"
-              >
-                {[25, 50, 100].map(n => <option key={n} value={n}>{n} / стр.</option>)}
-              </select>
+              <DarkSelect
+                value={String(perPage)}
+                onChange={v => handlePerPage(Number(v))}
+                groups={[{ options: [10, 25, 50, 100].map(n => ({ value: String(n), label: `${n} / стр.` })) }]}
+                buttonClassName="bg-overlay-sm border border-default rounded-lg px-2 py-1 text-primary text-xs"
+              />
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white/70 hover:border-white/20 disabled:opacity-30 transition-colors text-sm"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-default text-muted hover:text-primary disabled:opacity-30 transition-colors text-sm"
               >←</button>
               {getPageNumbers(page, totalPages).map((p, i) =>
                 p === '...' ? (
-                  <span key={`dots-${i}`} className="w-8 h-8 flex items-center justify-center text-white/25 text-xs">…</span>
+                  <span key={`dots-${i}`} className="w-8 h-8 flex items-center justify-center text-muted text-xs">…</span>
                 ) : (
                   <button
                     key={p}
@@ -339,7 +534,7 @@ export default function RwUsers() {
                     className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-colors ${
                       page === p
                         ? 'bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30'
-                        : 'border border-white/10 text-white/50 hover:text-white/70 hover:border-white/20'
+                        : 'border border-default text-muted hover:text-primary'
                     }`}
                   >{p}</button>
                 )
@@ -347,32 +542,13 @@ export default function RwUsers() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white/70 hover:border-white/20 disabled:opacity-30 transition-colors text-sm"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-default text-muted hover:text-primary disabled:opacity-30 transition-colors text-sm"
               >→</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Delete confirm */}
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-backdrop">
-          <div className="glass-card p-6 rounded-2xl w-80 space-y-4 modal-content">
-            <div className="text-base font-semibold text-white">Удалить пользователя?</div>
-            <div className="text-sm text-white/55">Это действие необратимо.</div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="flex-1 py-2 rounded-xl border border-white/15 text-white/60 text-sm"
-              >Отмена</button>
-              <button
-                onClick={() => doAction(confirmDelete, 'delete')}
-                className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 text-sm font-semibold"
-              >Удалить</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

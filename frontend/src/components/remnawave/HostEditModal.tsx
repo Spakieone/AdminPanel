@@ -332,7 +332,7 @@ export default function HostEditModal({ host, inbounds, onClose, onSaved }: Host
     >
       <form id={formId} onSubmit={handleSubmit} className="space-y-5">
             {/* Основное */}
-            <div className="bg-black/20 border border-default rounded-xl p-4 sm:p-5">
+            <div className="bg-overlay-sm border border-default rounded-xl p-4 sm:p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-orange-400" />
                 <div className="text-primary font-semibold">Основное</div>
@@ -383,7 +383,7 @@ export default function HostEditModal({ host, inbounds, onClose, onSaved }: Host
             </div>
 
             {/* Инбаунд */}
-            <div className="bg-black/20 border border-default rounded-xl p-4 sm:p-5">
+            <div className="bg-overlay-sm border border-default rounded-xl p-4 sm:p-5">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-cyan-400" />
@@ -450,7 +450,7 @@ export default function HostEditModal({ host, inbounds, onClose, onSaved }: Host
             </div>
 
             {/* Security */}
-            <div className="bg-black/20 border border-default rounded-xl p-4 sm:p-5">
+            <div className="bg-overlay-sm border border-default rounded-xl p-4 sm:p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-purple-400" />
                 <div className="text-primary font-semibold">Security</div>
@@ -495,7 +495,7 @@ export default function HostEditModal({ host, inbounds, onClose, onSaved }: Host
             </div>
 
             {/* Примечание */}
-            <div className="bg-black/20 border border-default rounded-xl p-4 sm:p-5">
+            <div className="bg-overlay-sm border border-default rounded-xl p-4 sm:p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-green-400" />
                 <div className="text-primary font-semibold">Примечание</div>

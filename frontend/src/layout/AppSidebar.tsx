@@ -83,6 +83,7 @@ const navItems: NavItem[] = [
       { name: "UTM-метки", path: "/utm" },
       { name: "Купоны", path: "/coupons" },
       { name: "Рефералы", path: "/referrals" },
+      { name: "Партнёрка", path: "/partners" },
       { name: "Подарки", path: "/gifts" },
       { name: "Рассылка", path: "/sender" },
     ],

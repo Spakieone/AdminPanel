@@ -7,6 +7,7 @@ import { getBotTariffs, getBotBannedCounts, getAllBotManualBans, getAllBotBlocke
 import { getAllRemnawaveSettings, getBotProfiles, getRemnawaveNodes, getRemnawaveUsersBulkByIdentifier, getCachedUsers, getCachedKeys } from '../api/client'
 import UserDetailModal from '../components/users/UserDetailModal'
 import KeyEditModal from '../components/users/KeyEditModal'
+import ConfirmModal from '../components/common/ConfirmModal'
 import GlassTabs from '../components/common/GlassTabs'
 import CapybaraLoader from '../components/common/CapybaraLoader'
 import { GradientAlert } from '../components/common/GradientAlert'
@@ -1503,23 +1504,38 @@ export default function Users({
                           
                           {/* Колонка Трафик */}
                           {(rmwEnabled || rmwChecking) && (
-                            <td className="pl-0 pr-8 py-4 text-[17px] leading-7 whitespace-nowrap">
+                            <td className="px-3 py-4" onClick={e => e.stopPropagation()}>
                               {rmwLoading ? (
-                                <div className="h-4 w-20 rounded bg-overlay-sm animate-pulse" />
+                                <div className="h-6 w-[140px] rounded-full bg-overlay-sm animate-pulse" />
                               ) : rmwNoData || rmwNeverConnected ? (
                                 <span className="text-muted text-[14px]">—</span>
-                              ) : rmwUser ? (
-                                <div className="text-[15px] font-mono leading-6">
-                                  <div className="flex items-center justify-between gap-2 whitespace-nowrap" title={`Потрачено: ${trafficUsedText}`}>
-                                    <span className="text-muted">Потрачено</span>
-                                    <span className="text-[var(--accent)]">{trafficUsedText}</span>
+                              ) : rmwUser ? (() => {
+                                const usedBytes = Number(rmwUser.usedTrafficBytes ?? 0)
+                                const limitBytes = rmwUser.trafficLimitBytes ? Number(rmwUser.trafficLimitBytes) : 0
+                                const isUnlimited = !limitBytes || limitBytes <= 0
+                                const pct = limitBytes > 0 ? Math.min(100, Math.round((usedBytes / limitBytes) * 100)) : 0
+                                const isDanger = pct >= 90
+                                const barBg = isUnlimited
+                                  ? 'from-sky-600/30 to-cyan-600/30 border-sky-500/25'
+                                  : isDanger
+                                  ? 'from-red-600/40 to-red-500/30 border-red-500/30'
+                                  : pct >= 70
+                                  ? 'from-amber-600/40 to-amber-500/30 border-amber-500/30'
+                                  : 'from-emerald-600/30 to-cyan-600/30 border-emerald-500/25'
+                                const fillCls = isDanger ? 'bg-red-500/30' : pct >= 70 ? 'bg-amber-500/30' : 'bg-emerald-500/30'
+                                return (
+                                  <div className={`relative h-6 min-w-[140px] rounded-full overflow-hidden bg-gradient-to-r ${barBg} border`}>
+                                    {!isUnlimited && pct > 0 && (
+                                      <div className={`absolute inset-y-0 left-0 rounded-full ${fillCls}`} style={{ width: `${pct}%` }} />
+                                    )}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <span className={`text-xs font-medium drop-shadow-sm ${isDanger && !isUnlimited ? 'text-red-300' : 'text-primary'}`}>
+                                        {trafficUsedText} / {isUnlimited ? '∞' : trafficTotalText}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center justify-between gap-2 whitespace-nowrap" title={`Всего: ${trafficTotalText}`}>
-                                    <span className="text-muted">Всего</span>
-                                    <span className="text-[var(--accent)]">{trafficTotalText}</span>
-                                  </div>
-                                </div>
-                              ) : (
+                                )
+                              })() : (
                                 <span className="text-muted text-[14px]">—</span>
                               )}
                             </td>
@@ -1583,11 +1599,12 @@ export default function Users({
                           )}
                           
                           <td className="px-2 py-4">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1.5">
                               <EditButton
                                 size="sm"
                                 title="Редактировать"
                                 ariaLabel="Редактировать подписку"
+                                variant="small"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setEditingKey(key)
@@ -1599,7 +1616,7 @@ export default function Users({
                                 size="sm"
                                 title="Удалить"
                                 ariaLabel="Удалить подписку"
-                                variant="responsive"
+                                variant="small"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setDeleteConfirm({ isOpen: true, user: null, key })
@@ -1727,10 +1744,25 @@ export default function Users({
                               <span className="text-muted font-semibold text-base">Нода:</span>
                               <span className="text-primary text-base truncate min-w-0">{nodeName}</span>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-overlay-xs border border-default">
-                              <span className="text-muted font-semibold text-base">Трафик:</span>
-                              <span className="text-[var(--accent)] font-mono text-base">{trafficText || '—'}</span>
-                            </div>
+                            {(() => {
+                              const usedB = Number(rmwUser?.usedTrafficBytes ?? 0)
+                              const limitB = rmwUser?.trafficLimitBytes ? Number(rmwUser.trafficLimitBytes) : 0
+                              const isUnlim = !limitB || limitB <= 0
+                              const p = limitB > 0 ? Math.min(100, Math.round((usedB / limitB) * 100)) : 0
+                              const isDng = p >= 90
+                              const bg = isUnlim ? 'from-sky-600/30 to-cyan-600/30 border-sky-500/25' : isDng ? 'from-red-600/40 to-red-500/30 border-red-500/30' : p >= 70 ? 'from-amber-600/40 to-amber-500/30 border-amber-500/30' : 'from-emerald-600/30 to-cyan-600/30 border-emerald-500/25'
+                              const fill = isDng ? 'bg-red-500/30' : p >= 70 ? 'bg-amber-500/30' : 'bg-emerald-500/30'
+                              return (
+                                <div className={`relative h-7 rounded-full overflow-hidden bg-gradient-to-r ${bg} border`}>
+                                  {!isUnlim && p > 0 && <div className={`absolute inset-y-0 left-0 rounded-full ${fill}`} style={{ width: `${p}%` }} />}
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className={`text-xs font-medium drop-shadow-sm ${isDng && !isUnlim ? 'text-red-300' : 'text-primary'}`}>
+                                      {trafficText || '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              )
+                            })()}
                           </>
                         )}
                       </div>
@@ -1778,41 +1810,22 @@ export default function Users({
         )}
 
         {/* Inline подтверждение действий (без модалок) */}
-        {deleteConfirm.isOpen ? (
-          <div className="glass-card" style={{ marginTop: 16, padding: 14 }}>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-primary font-semibold">
-                  {deleteConfirm.key ? 'Удалить подписку' : 'Разбанить пользователя'}
-                </div>
-                <div className="text-sm text-dim">
-                  {deleteConfirm.key
-                    ? `Вы уверены, что хотите удалить подписку ${deleteConfirm.key.name || deleteConfirm.key.email || ''}?`
-                    : `Вы уверены, что хотите разбанить пользователя ${deleteConfirm.user?.tg_id}?`}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 justify-end">
-                <button
-                  type="button"
-                  className="card-btn"
-                  onClick={() => setDeleteConfirm({ isOpen: false, user: null, key: null })}
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  className="card-btn danger"
-                  onClick={() => {
-                    if (deleteConfirm.key) void handleDeleteKey(deleteConfirm.key)
-                    else if (deleteConfirm.user) void handleUnbanUser(deleteConfirm.user)
-                  }}
-                >
-                  Подтвердить
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+        <ConfirmModal
+          isOpen={deleteConfirm.isOpen}
+          title={deleteConfirm.key ? 'Удалить подписку?' : 'Разбанить пользователя?'}
+          message={
+            deleteConfirm.key
+              ? `Вы уверены, что хотите удалить подписку ${deleteConfirm.key.name || deleteConfirm.key.email || ''}?`
+              : `Вы уверены, что хотите разбанить пользователя ${deleteConfirm.user?.tg_id}?`
+          }
+          onConfirm={() => {
+            if (deleteConfirm.key) void handleDeleteKey(deleteConfirm.key)
+            else if (deleteConfirm.user) void handleUnbanUser(deleteConfirm.user)
+          }}
+          onCancel={() => setDeleteConfirm({ isOpen: false, user: null, key: null })}
+          confirmText="Подтвердить"
+          cancelText="Отмена"
+        />
       </div>
       {/* End page wrapper */}
     </>

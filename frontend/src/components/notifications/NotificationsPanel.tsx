@@ -270,7 +270,7 @@ export default function NotificationsPanel({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[99999] bg-black/20 backdrop-blur-sm"
+        className="fixed inset-0 z-[99999] bg-overlay-sm backdrop-blur-sm"
         aria-hidden="true"
         onClick={onClose}
       />

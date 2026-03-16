@@ -37,6 +37,7 @@ const LkPartner = lazy(() => import('./pages/LkPartner.tsx'))
 // Marketing sub-pages (each is a standalone page)
 const Utm = lazy(() => import('./pages/Utm.tsx'))
 const Referrals = lazy(() => import('./pages/Referrals.tsx'))
+const Partners = lazy(() => import('./pages/Partners.tsx'))
 const Sender = lazy(() => import('./pages/Sender.tsx'))
 const Gifts = lazy(() => import('./pages/Gifts.tsx'))
 const CouponsOnly = lazy(() => import('./pages/CouponsOnly.tsx'))
@@ -124,6 +125,7 @@ function App() {
           <Route path="/utm" element={<S><Utm /></S>} />
           <Route path="/coupons" element={<S><CouponsOnly /></S>} />
           <Route path="/referrals" element={<S><Referrals /></S>} />
+          <Route path="/partners" element={<S><Partners /></S>} />
           <Route path="/gifts" element={<S><Gifts /></S>} />
           <Route path="/sender" element={<S><Sender /></S>} />
           {/* Legacy: /marketing -> /utm */}

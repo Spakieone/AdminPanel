@@ -1,0 +1,6 @@
+import{j as n}from"./chart-vendor-CkoAX-yw.js";import{u as i,b as c,r}from"./react-vendor-CgeT7Z0k.js";import{b5 as p,ac as l}from"./index-mZBM_hYI.js";/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const m=[["path",{d:"M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915",key:"1i5ecw"}],["circle",{cx:"12",cy:"12",r:"3",key:"1v7zrd"}]],u=p("settings",m);function d({className:e,label:a="Настройки"}){const s=i(),t=c(),o=r.useCallback(()=>{t.pathname==="/settings"||t.pathname.startsWith("/settings/")||s("/settings")},[t.pathname,s]);return n.jsxs("button",{type:"button",className:l("topActionBtn topActionBtn--text topActionBtn--settings",e),onClick:o,"aria-label":"Настройки",title:"Настройки",children:[n.jsx(u,{className:"topActionBtnIcon w-5 h-5",strokeWidth:2.5}),n.jsx("span",{children:a})]})}export{d as O};

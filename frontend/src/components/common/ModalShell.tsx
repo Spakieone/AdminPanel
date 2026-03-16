@@ -199,7 +199,7 @@ export default function ModalShell({
 
   return createPortal(
     <div
-      className={`fixed inset-0 ${zIndexClassName} bg-black/50 backdrop-blur-[3px] flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-x-hidden modal-backdrop`}
+      className={`fixed inset-0 ${zIndexClassName} bg-overlay-md backdrop-blur-[3px] flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-x-hidden modal-backdrop`}
       onClick={closeOnBackdropClick ? onClose : undefined}
       role="dialog"
       aria-modal="true"

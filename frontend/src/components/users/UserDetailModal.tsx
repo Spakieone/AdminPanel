@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getBotConfigAsync } from '../../utils/botConfig'
-import { getBotUser, getBotKeysByTgId, getBotPaymentsByTgId, getBotTariffs, getBotReferralsAll, deleteBotReferral, deleteBotKey, deleteBotKeyByEmail, addUserBalance, takeUserBalance, deleteBotUser } from '../../api/botApi'
+import { getBotUser, getBotKeysByTgId, getBotPaymentsByTgId, getBotTariffs, getBotReferralsAll, deleteBotReferral, deleteBotKey, deleteBotKeyByEmail, addUserBalance, takeUserBalance, deleteBotUser, getUserPartner, setUserPartnerPercent, setUserPartnerCode, resetUserPartner, addUserPartnerBalance, subtractUserPartnerBalance, addUserPartnerReferral } from '../../api/botApi'
+import type { UserPartnerData } from '../../api/botApi'
 import { getProviderColor as getSharedProviderColor } from '../../utils/providerColor'
 import KeyEditModal from './KeyEditModal'
 import ModalShell from '../common/ModalShell'
@@ -25,7 +26,21 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
   const [tariffs, setTariffs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'info' | 'payments' | 'referrals'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'payments' | 'referrals' | 'partner'>('info')
+  const [partnerData, setPartnerData] = useState<UserPartnerData | null>(null)
+  const [partnerLoading, setPartnerLoading] = useState(false)
+  const [partnerError, setPartnerError] = useState<string | null>(null)
+  // partner edit states
+  const [editPercent, setEditPercent] = useState(false)
+  const [percentInput, setPercentInput] = useState('')
+  const [editCode, setEditCode] = useState(false)
+  const [codeInput, setCodeInput] = useState('')
+  const [partnerSaving, setPartnerSaving] = useState(false)
+  // partner management
+  const [partnerBalanceMode, setPartnerBalanceMode] = useState<'add' | 'subtract' | null>(null)
+  const [partnerBalanceInput, setPartnerBalanceInput] = useState('')
+  const [addReferralMode, setAddReferralMode] = useState(false)
+  const [addReferralInput, setAddReferralInput] = useState('')
   const [showKeyEditor, setShowKeyEditor] = useState(false)
   const [editingKey, setEditingKey] = useState<any>(null)
   const [keyToDelete, setKeyToDelete] = useState<any | null>(null)
@@ -39,6 +54,7 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
   const [updatingBalance, setUpdatingBalance] = useState(false)
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(false)
   const [deletingUser, setDeletingUser] = useState(false)
+  const [referralToDelete, setReferralToDelete] = useState<{ referrerId: number; referredId: number } | null>(null)
 
   useEffect(() => {
     loadUserData()
@@ -107,6 +123,110 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadPartnerData = async () => {
+    setPartnerLoading(true)
+    setPartnerError(null)
+    try {
+      const config = await getBotConfigAsync()
+      if (!config) { setPartnerError('Нет активного профиля'); return }
+      const data = await getUserPartner(config, tgId)
+      setPartnerData(data)
+    } catch (err: any) {
+      setPartnerError(err.message || 'Ошибка загрузки')
+    } finally {
+      setPartnerLoading(false)
+    }
+  }
+
+  const handlePartnerSavePercent = async () => {
+    const val = percentInput.trim()
+    const pct = val === '' ? null : parseFloat(val.replace(',', '.'))
+    if (pct !== null && (!Number.isFinite(pct) || pct < 0 || pct > 100)) {
+      setPartnerError('Введите процент от 0 до 100')
+      return
+    }
+    setPartnerSaving(true)
+    setPartnerError(null)
+    try {
+      const config = await getBotConfigAsync()
+      if (!config) return
+      await setUserPartnerPercent(config, tgId, pct)
+      setEditPercent(false)
+      setPercentInput('')
+      await loadPartnerData()
+    } catch (err: any) {
+      setPartnerError(err.message || 'Ошибка')
+    } finally {
+      setPartnerSaving(false)
+    }
+  }
+
+  const handlePartnerSaveCode = async () => {
+    const code = codeInput.trim() || null
+    setPartnerSaving(true)
+    setPartnerError(null)
+    try {
+      const config = await getBotConfigAsync()
+      if (!config) return
+      await setUserPartnerCode(config, tgId, code)
+      setEditCode(false)
+      setCodeInput('')
+      await loadPartnerData()
+    } catch (err: any) {
+      setPartnerError(err.message || 'Ошибка')
+    } finally {
+      setPartnerSaving(false)
+    }
+  }
+
+  const handlePartnerReset = async () => {
+    setPartnerSaving(true)
+    setPartnerError(null)
+    try {
+      const config = await getBotConfigAsync()
+      if (!config) return
+      await resetUserPartner(config, tgId)
+      await loadPartnerData()
+    } catch (err: any) {
+      setPartnerError(err.message || 'Ошибка')
+    } finally {
+      setPartnerSaving(false)
+    }
+  }
+
+  const handlePartnerBalanceApply = async () => {
+    const amount = parseFloat(partnerBalanceInput.replace(',', '.'))
+    if (!Number.isFinite(amount) || amount <= 0) { setPartnerError('Введите корректную сумму'); return }
+    setPartnerSaving(true)
+    setPartnerError(null)
+    try {
+      const config = await getBotConfigAsync()
+      if (!config) return
+      if (partnerBalanceMode === 'add') await addUserPartnerBalance(config, tgId, amount)
+      else await subtractUserPartnerBalance(config, tgId, amount)
+      setPartnerBalanceMode(null)
+      setPartnerBalanceInput('')
+      await loadPartnerData()
+    } catch (err: any) { setPartnerError(err.message || 'Ошибка') }
+    finally { setPartnerSaving(false) }
+  }
+
+  const handleAddReferral = async () => {
+    const refId = parseInt(addReferralInput.trim(), 10)
+    if (!Number.isFinite(refId) || refId <= 0) { setPartnerError('Введите корректный TG ID'); return }
+    setPartnerSaving(true)
+    setPartnerError(null)
+    try {
+      const config = await getBotConfigAsync()
+      if (!config) return
+      await addUserPartnerReferral(config, tgId, refId)
+      setAddReferralMode(false)
+      setAddReferralInput('')
+      await loadPartnerData()
+    } catch (err: any) { setPartnerError(err.message || 'Ошибка') }
+    finally { setPartnerSaving(false) }
   }
 
   const handleCreateKey = () => {
@@ -198,20 +318,19 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
   }
 
   // Сортируем платежи по дате (последние сначала)
-  const sortedPayments = [...payments].sort((a, b) => {
+  const sortedPayments = useMemo(() => [...payments].sort((a, b) => {
     const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
     const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
-    return dateB - dateA // Обратный порядок - новые сначала
-  })
+    return dateB - dateA
+  }), [payments])
 
   // Сортируем рефералов по дате (последние сначала)
-  const sortedReferrals = [...referrals].sort((a, b) => {
+  const sortedReferrals = useMemo(() => [...referrals].sort((a, b) => {
     const dateA = a.created_at || a.date || a.referral_date ? new Date(a.created_at || a.date || a.referral_date).getTime() : 0
     const dateB = b.created_at || b.date || b.referral_date ? new Date(b.created_at || b.date || b.referral_date).getTime() : 0
-    return dateB - dateA // Обратный порядок - новые сначала
-  })
+    return dateB - dateA
+  }), [referrals])
 
-  const totalReferralsPages = Math.ceil(sortedReferrals.length / referralsPerPage)
   const paginatedReferrals = sortedReferrals.slice(
     (referralsPage - 1) * referralsPerPage,
     referralsPage * referralsPerPage
@@ -364,7 +483,7 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
     )
   }
 
-  const renderPaginator = (page: number, _total: number, count: number, perPage: number, setPage: (p: number) => void) => {
+  const renderPaginator = (page: number, count: number, perPage: number, setPage: (p: number) => void) => {
     if (count <= perPage) return null
     const totalPages = Math.ceil(count / perPage)
     return (
@@ -417,6 +536,9 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
               </button>
               <button type="button" onClick={() => { setActiveTab('referrals'); setReferralsPage(1) }} className={`ud-tab${activeTab === 'referrals' ? ' active' : ''}`}>
                 Рефералы {referrals.length > 0 && <span className="ud-tab-count">{referrals.length}</span>}
+              </button>
+              <button type="button" onClick={() => { setActiveTab('partner'); if (!partnerData && !partnerLoading) loadPartnerData() }} className={`ud-tab${activeTab === 'partner' ? ' active' : ''}`}>
+                Партнёрка
               </button>
             </div>
 
@@ -535,7 +657,7 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
                                 </div>
                                 <div className="ud-key-actions">
                                   <EditButton size="sm" onClick={() => handleEditKey(key)} ariaLabel="Редактировать" title="Редактировать" />
-                                  {keyToDelete === key ? (
+                                  {keyToDelete && (keyToDelete.client_id || keyToDelete.clientId || keyToDelete.id) === (key.client_id || key.clientId || key.id) ? (
                                     <>
                                       <button type="button" onClick={() => setKeyToDelete(null)} className="ud-key-cancel">Отмена</button>
                                       <button type="button" onClick={() => void confirmDelete()} className="ud-key-confirm-del">Удалить</button>
@@ -552,7 +674,7 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
                                   {daysLeft && <span className="ud-key-meta-item"><span className="ud-key-meta-label">Осталось</span>{daysLeft} дн.</span>}
                                 </div>
                               )}
-                              {subscriptionUrl && (
+                              {subscriptionUrl && /^https?:\/\//i.test(subscriptionUrl) && (
                                 <div className="ud-key-link-row">
                                   <span className="ud-key-link-label">Ссылка</span>
                                   <div className="ud-key-link-box">
@@ -625,7 +747,7 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
                       {userOps.length > 0 && (
                         <div>
                           <div className="ud-section-label">💸 Платежи пользователя ({userOps.length})</div>
-                          {renderPaginator(paymentsPage, Math.ceil(userOps.length / paymentsPerPage), userOps.length, paymentsPerPage, setPaymentsPage)}
+                          {renderPaginator(paymentsPage, userOps.length, paymentsPerPage, setPaymentsPage)}
                           <div className="ud-table-wrap">
                             <table className="ud-table">
                               <colgroup>
@@ -646,6 +768,201 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
                     </>
                   )
                 })()}
+              </div>
+            )}
+
+            {/* === ВКЛ: ПАРТНЁРКА === */}
+            {activeTab === 'partner' && (
+              <div className="ud-tab-content">
+                {partnerLoading && <p className="ud-empty">Загрузка...</p>}
+                {partnerError && <p className="text-red-400 text-sm py-2">{partnerError}</p>}
+                {!partnerLoading && partnerData && (partnerData.no_module ? (
+                  <p className="ud-empty">Модуль партнёрской программы не установлен</p>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Основная карточка */}
+                    <div className="ud-card">
+                      <div className="ud-card-header">
+                        <span className="ud-card-title">🤝 Партнёрская программа</span>
+                        <button
+                          onClick={() => void handlePartnerReset()}
+                          disabled={partnerSaving}
+                          className="ud-btn-danger-sm"
+                        >Сбросить к дефолту</button>
+                      </div>
+                      <div className="ud-rows">
+                        {partnerData.who_invited && (
+                          <div className="ud-row">
+                            <span className="ud-label">🤝 Кто пригласил</span>
+                            <CopyText text={String(partnerData.who_invited)} toastMessage="ID скопирован" className="ud-copy-btn font-mono text-sky-400 text-sm" label={<span className="font-mono text-sky-400">{partnerData.who_invited}</span>} />
+                          </div>
+                        )}
+                        <div className="ud-row">
+                          <span className="ud-label">💰 Баланс</span>
+                          <span className="ud-val font-mono text-emerald-400 font-semibold">{partnerData.partner_balance.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} ₽</span>
+                        </div>
+                        <div className="ud-row">
+                          <span className="ud-label">👥 Привлёк</span>
+                          <span className="ud-val font-mono font-semibold text-primary">{partnerData.referred_count}</span>
+                        </div>
+                        {/* Процент */}
+                        <div className="ud-row ud-balance-row">
+                          <span className="ud-label">📊 Процент</span>
+                          <span className="ud-val ud-val-row">
+                            {editPercent ? (
+                              <>
+                                <input
+                                  type="number" value={percentInput}
+                                  onChange={e => setPercentInput(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') void handlePartnerSavePercent(); if (e.key === 'Escape') { setEditPercent(false); setPercentInput('') } }}
+                                  className="ud-balance-input-inline" placeholder={String(partnerData.percent)} min="0" max="100" step="0.01" autoFocus
+                                />
+                                <span className="text-muted text-sm">%</span>
+                                <button onClick={() => void handlePartnerSavePercent()} disabled={partnerSaving} className="ud-bal-save" title="Сохранить">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </button>
+                                <button onClick={() => { setEditPercent(false); setPercentInput('') }} disabled={partnerSaving} className="ud-bal-cancel" title="Отмена">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-mono font-semibold text-primary">{partnerData.percent}%</span>
+                                {partnerData.percent_custom && <span className="text-xs text-yellow-400 ml-1">(кастом)</span>}
+                                <button onClick={() => { setEditPercent(true); setPercentInput(String(partnerData.percent)) }} className="ud-icon-btn ud-icon-btn-add" title="Изменить %">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                        {/* Реферальный код/ссылка */}
+                        <div className="ud-row ud-balance-row">
+                          <span className="ud-label">🔗 Код ссылки</span>
+                          <span className="ud-val ud-val-row">
+                            {editCode ? (
+                              <>
+                                <input
+                                  type="text" value={codeInput}
+                                  onChange={e => setCodeInput(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') void handlePartnerSaveCode(); if (e.key === 'Escape') { setEditCode(false); setCodeInput('') } }}
+                                  className="ud-balance-input-inline" placeholder="Оставьте пустым для сброса" autoFocus
+                                />
+                                <button onClick={() => void handlePartnerSaveCode()} disabled={partnerSaving} className="ud-bal-save" title="Сохранить">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </button>
+                                <button onClick={() => { setEditCode(false); setCodeInput('') }} disabled={partnerSaving} className="ud-bal-cancel" title="Отмена">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-mono text-sm text-primary">{partnerData.partner_code ?? '—'}</span>
+                                <button onClick={() => { setEditCode(true); setCodeInput(partnerData.partner_code ?? '') }} className="ud-icon-btn ud-icon-btn-add" title="Изменить код">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                        {partnerData.referral_link && (
+                          <div className="ud-row">
+                            <span className="ud-label">🔗 Ссылка</span>
+                            <span className="ud-val ud-val-row" style={{ minWidth: 0 }}>
+                              <span className="font-mono text-xs text-sky-400 break-all">{partnerData.referral_link}</span>
+                              <CopyText text={partnerData.referral_link} toastMessage="Ссылка скопирована" label={<span className="sr-only">Копировать</span>} className="ud-copy-btn" />
+                            </span>
+                          </div>
+                        )}
+                        {partnerData.payout_method && (
+                          <div className="ud-row">
+                            <span className="ud-label">💳 Способ вывода</span>
+                            <span className="ud-val text-sm text-primary">{partnerData.payout_method_label || partnerData.payout_method}{partnerData.requisites_masked ? ` · ${partnerData.requisites_masked}` : ''}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Управление */}
+                    <div className="ud-card">
+                      <div className="ud-card-header"><span className="ud-card-title">⚙️ Управление</span></div>
+                      <div className="ud-rows">
+                        {/* Партнёрский баланс */}
+                        <div className="ud-row ud-balance-row">
+                          <span className="ud-label">💰 Партнёрский баланс</span>
+                          <span className="ud-val ud-val-row">
+                            {partnerBalanceMode ? (
+                              <>
+                                <span className="ud-bal-mode-label">{partnerBalanceMode === 'add' ? '+' : '−'}</span>
+                                <input
+                                  type="number" value={partnerBalanceInput}
+                                  onChange={e => setPartnerBalanceInput(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') void handlePartnerBalanceApply(); if (e.key === 'Escape') { setPartnerBalanceMode(null); setPartnerBalanceInput('') } }}
+                                  className="ud-balance-input-inline" placeholder="0" min="0" step="0.01" autoFocus
+                                />
+                                <button onClick={() => void handlePartnerBalanceApply()} disabled={partnerSaving} className="ud-bal-save" title="Применить">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </button>
+                                <button onClick={() => { setPartnerBalanceMode(null); setPartnerBalanceInput('') }} disabled={partnerSaving} className="ud-bal-cancel" title="Отмена">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-mono text-emerald-400 font-semibold">{partnerData.partner_balance.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} ₽</span>
+                                <button onClick={() => setPartnerBalanceMode('add')} className="ud-icon-btn ud-icon-btn-add" title="Начислить">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                </button>
+                                <button onClick={() => setPartnerBalanceMode('subtract')} className="ud-icon-btn ud-icon-btn-take" title="Списать">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+                                </button>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                        {/* Добавить реферала */}
+                        <div className="ud-row ud-balance-row">
+                          <span className="ud-label">👥 Добавить реферала</span>
+                          <span className="ud-val ud-val-row">
+                            {addReferralMode ? (
+                              <>
+                                <input
+                                  type="number" value={addReferralInput}
+                                  onChange={e => setAddReferralInput(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') void handleAddReferral(); if (e.key === 'Escape') { setAddReferralMode(false); setAddReferralInput('') } }}
+                                  className="ud-balance-input-inline" placeholder="TG ID" min="1" step="1" autoFocus
+                                />
+                                <button onClick={() => void handleAddReferral()} disabled={partnerSaving} className="ud-bal-save" title="Добавить">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </button>
+                                <button onClick={() => { setAddReferralMode(false); setAddReferralInput('') }} disabled={partnerSaving} className="ud-bal-cancel" title="Отмена">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => setAddReferralMode(true)} className="ud-icon-btn ud-icon-btn-add" title="Добавить реферала">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                              </button>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Статистика выплат */}
+                    <div className="ud-card">
+                      <div className="ud-card-header"><span className="ud-card-title">💸 Статистика выводов</span></div>
+                      <div className="ud-rows">
+                        <div className="ud-row"><span className="ud-label">Сегодня</span><span className="ud-val font-mono text-[var(--accent)]">{partnerData.paid_today.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} ₽</span></div>
+                        <div className="ud-row"><span className="ud-label">За месяц</span><span className="ud-val font-mono text-emerald-400">{partnerData.paid_month.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} ₽</span></div>
+                        <div className="ud-row"><span className="ud-label">Всего выплачено</span><span className="ud-val font-mono text-emerald-400">{partnerData.paid_total.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} ₽</span></div>
+                        {partnerData.pending_count > 0 && (
+                          <div className="ud-row"><span className="ud-label">⏳ Ожидают вывода</span><span className="ud-val font-mono text-yellow-400">{partnerData.pending_count} ({partnerData.pending_amount.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} ₽)</span></div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -672,7 +989,7 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
                   <p className="ud-empty">Нет рефералов</p>
                 ) : (
                   <>
-                    {renderPaginator(referralsPage, totalReferralsPages, sortedReferrals.length, referralsPerPage, setReferralsPage)}
+                    {renderPaginator(referralsPage, sortedReferrals.length, referralsPerPage, setReferralsPage)}
                     <div className="ud-table-wrap">
                       <table className="ud-table">
                         <colgroup>
@@ -688,15 +1005,7 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
                                 <td className="font-mono text-primary">{referredId || '-'}</td>
                                 <td>
                                   <button
-                                    onClick={async () => {
-                                      if (!confirm('Удалить реферала?')) return
-                                      setDeletingReferrals(true)
-                                      try {
-                                        const config = await getBotConfigAsync()
-                                        if (config) { await deleteBotReferral(config, tgId, referredId); await loadUserData() }
-                                      } catch (err: any) { setError(err.message || 'Ошибка удаления') }
-                                      finally { setDeletingReferrals(false) }
-                                    }}
+                                    onClick={() => setReferralToDelete({ referrerId: tgId, referredId })}
                                     disabled={deletingReferrals}
                                     className="ud-ref-del-btn"
                                   >Удалить</button>
@@ -708,22 +1017,14 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
                       </table>
                     </div>
                     <div className="ud-mobile-cards">
-                      {paginatedReferrals.map((referral) => {
+                      {paginatedReferrals.map((referral, idx) => {
                         const referredId = referral.referred_tg_id || referral.referred_id || referral.tg_id || referral.id
                         return (
-                          <div key={referral.id || referredId || Math.random()} className="ud-mobile-card">
+                          <div key={referral.id || referredId || `ref-${idx}`} className="ud-mobile-card">
                             <div className="ud-mobile-card-top">
                               <div><div className="text-muted text-[11px]">TG ID</div><div className="font-mono text-primary text-sm font-semibold">{referredId || '-'}</div></div>
                               <button
-                                onClick={async () => {
-                                  if (!confirm('Удалить реферала?')) return
-                                  setDeletingReferrals(true)
-                                  try {
-                                    const config = await getBotConfigAsync()
-                                    if (config) { await deleteBotReferral(config, tgId, referredId); await loadUserData() }
-                                  } catch (err: any) { setError(err.message || 'Ошибка удаления') }
-                                  finally { setDeletingReferrals(false) }
-                                }}
+                                onClick={() => setReferralToDelete({ referrerId: tgId, referredId })}
                                 disabled={deletingReferrals}
                                 className="ud-ref-del-btn"
                               >Удалить</button>
@@ -748,6 +1049,33 @@ export default function UserDetailModal({ tgId, onClose, onDeleted }: UserDetail
           onConfirm={() => void performDeleteUser()}
           onCancel={() => setConfirmDeleteUser(false)}
           confirmText={deletingUser ? 'Удаление...' : 'Удалить'}
+          cancelText="Отмена"
+          zIndexClassName="z-[100002]"
+        />
+      )}
+
+      {referralToDelete && (
+        <ConfirmModal
+          isOpen={true}
+          title="Удалить реферала?"
+          message={`Реферал ${referralToDelete.referredId} будет удалён.`}
+          onConfirm={async () => {
+            setDeletingReferrals(true)
+            try {
+              const config = await getBotConfigAsync()
+              if (config) {
+                await deleteBotReferral(config, referralToDelete.referrerId, referralToDelete.referredId)
+                await loadUserData()
+              }
+            } catch (err: any) {
+              setError(err.message || 'Ошибка удаления')
+            } finally {
+              setDeletingReferrals(false)
+              setReferralToDelete(null)
+            }
+          }}
+          onCancel={() => setReferralToDelete(null)}
+          confirmText={deletingReferrals ? 'Удаление...' : 'Удалить'}
           cancelText="Отмена"
           zIndexClassName="z-[100002]"
         />

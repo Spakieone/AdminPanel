@@ -1,6 +1,20 @@
 import Chart from 'react-apexcharts'
 import type { ApexOptions } from 'apexcharts'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+function useIsDark() {
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    obs.observe(document.documentElement, { attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
 
 interface PaymentsChartProps {
   daily: any[]
@@ -25,6 +39,7 @@ function fmtMonthLabel(month: string) {
 }
 
 export default function PaymentsChart({ daily, monthly }: PaymentsChartProps) {
+  const isDark = useIsDark()
   const [period, setPeriod] = useState<'daily' | 'monthly'>('daily')
   const rows = period === 'monthly' ? monthly.slice(-12) : daily.slice(-30)
   const categories = rows.map((r: any) =>
@@ -66,10 +81,10 @@ export default function PaymentsChart({ daily, monthly }: PaymentsChartProps) {
     },
     legend: { show: false },
     yaxis: { title: { text: undefined }, labels: { style: { colors: ['#6B7280'] } } },
-    grid: { borderColor: 'rgba(255,255,255,0.06)', yaxis: { lines: { show: true } } },
+    grid: { borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)', yaxis: { lines: { show: true } } },
     fill: { opacity: 1 },
     tooltip: {
-      theme: 'dark',
+      theme: isDark ? 'dark' : 'light',
       x: { show: true },
       y: { formatter: (val: number) => `${Math.round(val).toLocaleString('ru-RU')} ₽` },
     },
@@ -90,14 +105,14 @@ export default function PaymentsChart({ daily, monthly }: PaymentsChartProps) {
           <button
             type="button"
             onClick={() => setPeriod('daily')}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${period === 'daily' ? 'bg-accent-10 text-[var(--accent)]' : 'text-muted bg-overlay-md'}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium border ${period === 'daily' ? 'bg-accent-10 text-[var(--accent)] border-[var(--accent)]' : 'text-muted bg-overlay-md border-transparent'}`}
           >
             30 дней
           </button>
           <button
             type="button"
             onClick={() => setPeriod('monthly')}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${period === 'monthly' ? 'bg-accent-10 text-[var(--accent)]' : 'text-muted bg-overlay-md'}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium border ${period === 'monthly' ? 'bg-accent-10 text-[var(--accent)] border-[var(--accent)]' : 'text-muted bg-overlay-md border-transparent'}`}
           >
             12 мес
           </button>

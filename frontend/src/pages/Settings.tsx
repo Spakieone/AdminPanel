@@ -933,7 +933,7 @@ export default function Settings({ onlySection }: { onlySection?: SettingsOnlySe
                       <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/35 hover:border-orange-400/60 rounded-xl p-4 border flex flex-col gap-3 h-full transition-colors duration-200">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-orange-400' : 'bg-white/20'}`} />
+                            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-orange-400' : 'bg-overlay-md'}`} />
                             <h3 className="text-base font-semibold text-primary">{profile.name}</h3>
                             {isActive && <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/20 font-medium">активен</span>}
                           </div>
@@ -1018,8 +1018,8 @@ export default function Settings({ onlySection }: { onlySection?: SettingsOnlySe
                 {/* Front */}
                 <div className="absolute inset-0 [backface-visibility:hidden]">
                   <div onClick={openCreateCard}
-                    className="w-full h-full rounded-xl border-2 border-dashed border-white/10 hover:border-orange-500/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
-                    <div className="w-10 h-10 rounded-full bg-white/5 group-hover:bg-orange-500/10 flex items-center justify-center transition-colors">
+                    className="w-full h-full rounded-xl border-2 border-dashed border-default hover:border-orange-500/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
+                    <div className="w-10 h-10 rounded-full bg-overlay-xs group-hover:bg-orange-500/10 flex items-center justify-center transition-colors">
                       <svg className="w-5 h-5 text-muted group-hover:text-orange-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     </div>
                     <span className="text-sm font-medium text-muted group-hover:text-orange-400 transition-colors">Добавить профиль</span>
@@ -1186,8 +1186,8 @@ export default function Settings({ onlySection }: { onlySection?: SettingsOnlySe
                 {/* Front */}
                 <div className="absolute inset-0 [backface-visibility:hidden]">
                   <div onClick={() => openRemnawaveEditor()}
-                    className="w-full h-full rounded-xl border-2 border-dashed border-white/10 hover:border-purple-500/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
-                    <div className="w-10 h-10 rounded-full bg-white/5 group-hover:bg-purple-500/10 flex items-center justify-center transition-colors">
+                    className="w-full h-full rounded-xl border-2 border-dashed border-default hover:border-purple-500/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
+                    <div className="w-10 h-10 rounded-full bg-overlay-xs group-hover:bg-purple-500/10 flex items-center justify-center transition-colors">
                       <svg className="w-5 h-5 text-muted group-hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     </div>
                     <span className="text-sm font-medium text-muted group-hover:text-purple-400 transition-colors">Добавить профиль</span>
@@ -1843,8 +1843,8 @@ export default function Settings({ onlySection }: { onlySection?: SettingsOnlySe
                           {/* Front */}
                           <div className="absolute inset-0 [backface-visibility:hidden]">
                             <div onClick={() => setFlippedRecipientCardId('create')}
-                              className="w-full h-full rounded-xl border-2 border-dashed border-white/10 hover:border-blue-500/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
-                              <div className="w-10 h-10 rounded-full bg-white/5 group-hover:bg-blue-500/10 flex items-center justify-center transition-colors">
+                              className="w-full h-full rounded-xl border-2 border-dashed border-default hover:border-blue-500/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
+                              <div className="w-10 h-10 rounded-full bg-overlay-xs group-hover:bg-blue-500/10 flex items-center justify-center transition-colors">
                                 <svg className="w-5 h-5 text-muted group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                               </div>
                               <span className="text-sm font-medium text-muted group-hover:text-blue-400 transition-colors">Добавить получателя</span>

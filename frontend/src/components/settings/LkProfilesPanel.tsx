@@ -296,8 +296,8 @@ export default function LkProfilesPanel({ botProfiles }: { botProfiles: BotProfi
               {/* Front */}
               <div className="absolute inset-0 [backface-visibility:hidden]">
                 <div onClick={openCreate}
-                  className="w-full h-full rounded-xl border-2 border-dashed border-white/10 hover:border-sky-500/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-white/5 group-hover:bg-sky-500/10 flex items-center justify-center transition-colors">
+                  className="w-full h-full rounded-xl border-2 border-dashed border-default hover:border-sky-500/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
+                  <div className="w-10 h-10 rounded-full bg-overlay-xs group-hover:bg-sky-500/10 flex items-center justify-center transition-colors">
                     <svg className="w-5 h-5 text-muted group-hover:text-sky-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                   </div>
                   <span className="text-sm font-medium text-muted group-hover:text-sky-400 transition-colors">Добавить профиль ЛК</span>

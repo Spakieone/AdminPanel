@@ -9,12 +9,13 @@ services:
       - ADMINPANEL_DATA_DIR=/data
       - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-/root/adminpanel}
       # - ADMINPANEL_ROOT_MODE=lk
-      - ADMINPANEL_LK_HOSTS=lkk.nonotouch.com
+      # - ADMINPANEL_LK_HOSTS=lk.example.com
     volumes:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - .:/host-project
-      - /root/bot/modules/api/version.json:/root/bot/modules/api/version.json:ro
+      # Uncomment if bot API module is installed:
+      # - /root/bot/modules/api/version.json:/root/bot/modules/api/version.json:ro
     ports:
       - "127.0.0.1:8888:8888"
     extra_hosts:

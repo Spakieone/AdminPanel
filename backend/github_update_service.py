@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
-DEFAULT_REPO_URL = "https://github.com/Spakieone/AdminPanel"
+DEFAULT_REPO_URL = os.environ.get("ADMINPANEL_GITHUB_REPO_URL", "")
 DEFAULT_BRANCH = "main"
 
 # Docker mode: when running inside Docker, use docker pull + recreate instead of ZIP overlay.
@@ -233,7 +233,7 @@ class GitHubUpdateManager:
     def _docker_ghcr_login(self) -> None:
         """Login to GHCR using token from /data/.env or environment."""
         token = os.environ.get("GHCR_TOKEN", "")
-        ghcr_owner = os.environ.get("GHCR_OWNER", "spakieone")
+        ghcr_owner = os.environ.get("GHCR_OWNER", "")
 
         if not token:
             env_file = Path("/data/.env")
