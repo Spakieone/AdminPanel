@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # ============================================================
-# AdminPanel — Installation from scratch
+# AdminPanel — Установка
 # ============================================================
-# Usage:
+# Использование:
 #   bash <(curl -fsSL https://raw.githubusercontent.com/Spakieone/AdminPanel/main/scripts/install.sh)
-# or:
+# или:
 #   bash scripts/install.sh
 #
-# Environment variables:
-#   INSTALL_DIR       — installation path (default: /root/adminpanel)
-#   ADMINPANEL_GITHUB_REPO — GitHub repo in OWNER/REPO format
+# Переменные окружения:
+#   INSTALL_DIR       — путь установки (по умолчанию: /root/adminpanel)
+#   ADMINPANEL_GITHUB_REPO — GitHub репозиторий в формате OWNER/REPO
 # ============================================================
 set -euo pipefail
 
@@ -23,17 +23,17 @@ warn() { echo -e "${Y}[!]${N} $*"; }
 err()  { echo -e "${R}[✗]${N} $*"; exit 1; }
 step() { echo -e "\n${B}━━ $*${N}"; }
 
-# Check root
-[[ "$EUID" -eq 0 ]] || err "Run as root: sudo bash install.sh"
+# Проверка root
+[[ "$EUID" -eq 0 ]] || err "Запустите от root: sudo bash install.sh"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "   AdminPanel — Installation"
+echo "   AdminPanel — Установка"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# ── 1. Detect OS ────────────────────────────────────────
-step "Detecting system"
+# ── 1. Определение системы ────────────────────────────
+step "Определение системы"
 
 OS=""
 if [[ -f /etc/os-release ]]; then
@@ -44,26 +44,26 @@ fi
 case "$OS" in
   ubuntu|debian) PKG_MANAGER="apt-get" ;;
   centos|rhel|fedora|rocky|almalinux) PKG_MANAGER="yum" ;;
-  *) warn "Unknown OS: $OS — continuing with apt-get"; PKG_MANAGER="apt-get" ;;
+  *) warn "Неизвестная ОС: $OS — продолжаю с apt-get"; PKG_MANAGER="apt-get" ;;
 esac
 
-info "OS: ${PRETTY_NAME:-$OS}"
-info "Install directory: $INSTALL_DIR"
+info "ОС: ${PRETTY_NAME:-$OS}"
+info "Директория установки: $INSTALL_DIR"
 
-# ── 1.1. Disk space check ──────────────────────────────
+# ── 1.1. Проверка диска ──────────────────────────────
 AVAIL_MB=$(df -m "$( dirname "$INSTALL_DIR" )" 2>/dev/null | awk 'NR==2{print $4}' || echo "0")
 if [[ "$AVAIL_MB" -lt 2048 ]]; then
-  warn "Low disk space: ${AVAIL_MB}MB available (recommended: 2GB+)"
-  read -r -p "Continue anyway? [y/N]: " CONT_DISK
-  [[ "${CONT_DISK:-}" =~ ^[Yy]$ ]] || err "Not enough disk space"
+  warn "Мало места на диске: ${AVAIL_MB}МБ (рекомендуется: 2ГБ+)"
+  read -r -p "Продолжить? [y/N]: " CONT_DISK
+  [[ "${CONT_DISK:-}" =~ ^[Yy]$ ]] || err "Недостаточно места на диске"
 fi
 
-# ── 1.2. Swap check (build needs ~1.5GB RAM) ──────────
+# ── 1.2. Проверка swap (для сборки нужно ~1.5ГБ RAM) ─
 TOTAL_RAM_MB=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo "0")
 SWAP_MB=$(awk '/SwapTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo "0")
 
 if [[ "$TOTAL_RAM_MB" -lt 1536 && "$SWAP_MB" -lt 512 ]]; then
-  step "Setting up swap (${TOTAL_RAM_MB}MB RAM detected)"
+  step "Создание swap (обнаружено ${TOTAL_RAM_MB}МБ RAM)"
   if [[ ! -f /swapfile ]]; then
     fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
     chmod 600 /swapfile
@@ -72,43 +72,42 @@ if [[ "$TOTAL_RAM_MB" -lt 1536 && "$SWAP_MB" -lt 512 ]]; then
     if ! grep -q '/swapfile' /etc/fstab 2>/dev/null; then
       echo '/swapfile none swap sw 0 0' >> /etc/fstab
     fi
-    ok "2GB swap created"
+    ok "Swap 2ГБ создан"
   else
     swapon /swapfile 2>/dev/null || true
-    ok "Swap already exists"
+    ok "Swap уже существует"
   fi
 fi
 
-# ── 2. Base packages ──────────────────────────────────
-step "Installing base packages"
+# ── 2. Базовые пакеты ────────────────────────────────
+step "Установка базовых пакетов"
 
 if [[ "$PKG_MANAGER" == "apt-get" ]]; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq 2>/dev/null || true
   apt-get install -y -qq curl git ca-certificates gnupg lsb-release jq 2>/dev/null || {
-    warn "Some packages may not have installed — continuing"
+    warn "Некоторые пакеты не установились — продолжаю"
   }
 else
   yum install -y -q curl git ca-certificates jq 2>/dev/null || {
-    warn "Some packages may not have installed — continuing"
+    warn "Некоторые пакеты не установились — продолжаю"
   }
 fi
-ok "Base packages ready"
+ok "Базовые пакеты готовы"
 
-# ── 3. Docker ──────────────────────────────────────────
-step "Checking Docker"
+# ── 3. Docker ─────────────────────────────────────────
+step "Проверка Docker"
 
 if command -v docker >/dev/null 2>&1; then
   DOCKER_VER="$(docker --version | grep -oP '\d+\.\d+\.\d+' || echo 'unknown')"
-  ok "Docker already installed: $DOCKER_VER"
+  ok "Docker уже установлен: $DOCKER_VER"
 else
-  info "Docker not found — installing..."
+  info "Docker не найден — устанавливаю..."
 
   if [[ "$PKG_MANAGER" == "apt-get" ]]; then
     install -m 0755 -d /etc/apt/keyrings 2>/dev/null || true
     curl -fsSL "https://download.docker.com/linux/${OS}/gpg" | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null || {
-      # Fallback: use convenience script
-      warn "Could not add Docker GPG key — using get.docker.com"
+      warn "Не удалось добавить GPG ключ Docker — использую get.docker.com"
       curl -fsSL https://get.docker.com | sh
     }
     if [[ ! -f /etc/apt/sources.list.d/docker.list ]] && command -v lsb_release >/dev/null 2>&1; then
@@ -118,7 +117,7 @@ else
         > /etc/apt/sources.list.d/docker.list
       apt-get update -qq 2>/dev/null || true
       apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin 2>/dev/null || {
-        warn "apt install failed — trying get.docker.com"
+        warn "Установка через apt не удалась — пробую get.docker.com"
         curl -fsSL https://get.docker.com | sh
       }
     fi
@@ -127,14 +126,14 @@ else
   fi
 
   systemctl enable docker --now 2>/dev/null || true
-  ok "Docker installed"
+  ok "Docker установлен"
 fi
 
-# Check docker compose (plugin)
+# Проверка Docker Compose
 if docker compose version >/dev/null 2>&1; then
   ok "Docker Compose: $(docker compose version --short 2>/dev/null || echo 'ok')"
 else
-  info "Installing docker-compose-plugin..."
+  info "Устанавливаю docker-compose-plugin..."
   if [[ "$PKG_MANAGER" == "apt-get" ]]; then
     apt-get install -y -qq docker-compose-plugin 2>/dev/null || true
   else
@@ -142,106 +141,98 @@ else
   fi
 
   if ! docker compose version >/dev/null 2>&1; then
-    err "Docker Compose plugin not available. Update Docker or install manually."
+    err "Docker Compose не доступен. Обновите Docker или установите вручную."
   fi
-  ok "Docker Compose installed"
+  ok "Docker Compose установлен"
 fi
 
-# ── 4. Clone repository ──────────────────────────────
-step "Downloading AdminPanel"
-
-if [[ -z "$REPO" ]]; then
-  echo ""
-  echo "Enter GitHub repository (format: OWNER/REPO):"
-  read -r -p "Repository: " REPO
-  REPO="$(echo "${REPO:-}" | xargs)"
-  [[ -z "$REPO" ]] && err "Repository not specified"
-fi
+# ── 4. Загрузка репозитория ──────────────────────────
+step "Загрузка AdminPanel"
 
 REPO_URL="https://github.com/${REPO}.git"
 
 if [[ -d "$INSTALL_DIR/.git" ]]; then
-  warn "Directory $INSTALL_DIR already exists (git repository)"
-  read -r -p "Update existing installation? [y/N]: " UPDATE_EXISTING
+  warn "Директория $INSTALL_DIR уже существует (git-репозиторий)"
+  read -r -p "Обновить существующую установку? [y/N]: " UPDATE_EXISTING
   if [[ "${UPDATE_EXISTING:-}" =~ ^[Yy]$ ]]; then
     git -C "$INSTALL_DIR" fetch origin 2>/dev/null || true
     git -C "$INSTALL_DIR" reset --hard origin/main 2>/dev/null || true
-    ok "Code updated to latest version"
+    ok "Код обновлён до последней версии"
   else
-    info "Using existing code"
+    info "Используется существующий код"
   fi
 elif [[ -d "$INSTALL_DIR" ]]; then
-  warn "Directory $INSTALL_DIR exists but is not a git repository"
-  read -r -p "Remove and reinstall? [y/N]: " REINSTALL
-  [[ "${REINSTALL:-}" =~ ^[Yy]$ ]] || err "Cancelled. Set another directory: INSTALL_DIR=/other/path bash install.sh"
+  warn "Директория $INSTALL_DIR существует, но не является git-репозиторием"
+  read -r -p "Удалить и установить заново? [y/N]: " REINSTALL
+  [[ "${REINSTALL:-}" =~ ^[Yy]$ ]] || err "Отменено. Укажите другую директорию: INSTALL_DIR=/другой/путь bash install.sh"
   rm -rf "$INSTALL_DIR"
   git clone "$REPO_URL" "$INSTALL_DIR"
-  ok "Repository cloned"
+  ok "Репозиторий склонирован"
 else
   git clone "$REPO_URL" "$INSTALL_DIR"
-  ok "Repository cloned to $INSTALL_DIR"
+  ok "Репозиторий склонирован в $INSTALL_DIR"
 fi
 
 cd "$INSTALL_DIR"
 VERSION="$(cat VERSION 2>/dev/null | head -1 | tr -d '\r' || echo 'unknown')"
-info "Version: $VERSION"
+info "Версия: $VERSION"
 
-# ── 5. Configuration ──────────────────────────────────
-step "Setting up configuration"
+# ── 5. Конфигурация ──────────────────────────────────
+step "Настройка конфигурации"
 
-# .env file
+# .env файл
 if [[ ! -f "$INSTALL_DIR/.env" ]]; then
   cat > "$INSTALL_DIR/.env" << ENV_EOF
 HOST_PROJECT_DIR=${INSTALL_DIR}
 ENV_EOF
-  info ".env created"
+  info ".env создан"
 else
-  ok ".env already exists"
+  ok ".env уже существует"
 fi
 
-# Create data directory
+# Создание директории данных
 mkdir -p "$INSTALL_DIR/data"
-ok "Data directory ready"
+ok "Директория данных готова"
 
-# ── 6. Build and start ────────────────────────────────
-step "Building Docker image"
+# ── 6. Сборка и запуск ───────────────────────────────
+step "Сборка Docker-образа"
 
 cd "$INSTALL_DIR"
 
-# Update HOST_PROJECT_DIR in .env
+# Обновить HOST_PROJECT_DIR в .env
 if grep -q "HOST_PROJECT_DIR" "$INSTALL_DIR/.env"; then
   sed -i "s|HOST_PROJECT_DIR=.*|HOST_PROJECT_DIR=${INSTALL_DIR}|" "$INSTALL_DIR/.env"
 else
   echo "HOST_PROJECT_DIR=${INSTALL_DIR}" >> "$INSTALL_DIR/.env"
 fi
 
-info "Building image (this may take a few minutes)..."
-docker compose -f docker-compose.yml build || err "Docker build failed. Check Dockerfile and logs."
+info "Сборка образа (может занять несколько минут)..."
+docker compose -f docker-compose.yml build || err "Ошибка сборки Docker. Проверьте Dockerfile и логи."
 
-ok "Image built"
+ok "Образ собран"
 
-step "Starting container"
+step "Запуск контейнера"
 
-docker compose -f docker-compose.yml up -d || err "Failed to start container"
-ok "Container started"
+docker compose -f docker-compose.yml up -d || err "Не удалось запустить контейнер"
+ok "Контейнер запущен"
 
-# ── 7. Health check ──────────────────────────────────
-step "Checking health"
+# ── 7. Проверка работоспособности ────────────────────
+step "Проверка работоспособности"
 
-info "Waiting for startup..."
+info "Ожидание запуска..."
 for i in $(seq 1 15); do
   sleep 2
   HTTP_CODE="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/api/health 2>/dev/null || echo '000')"
   if [[ "$HTTP_CODE" == "200" ]]; then
-    ok "AdminPanel is running (HTTP 200)"
+    ok "AdminPanel работает (HTTP 200)"
     break
   fi
   if [[ "$i" -eq 15 ]]; then
-    warn "Panel did not respond in 30 seconds — check logs: docker logs adminpanel"
+    warn "Панель не ответила за 30 секунд — проверьте логи: docker logs adminpanel"
   fi
 done
 
-# ── 8. Get initial credentials ────────────────────────
+# ── 8. Получение начальных данных для входа ──────────
 INIT_PASSWORD=""
 for i in $(seq 1 10); do
   INIT_PASSWORD="$(docker logs adminpanel 2>&1 | grep -oP 'Password: \K\S+' || true)"
@@ -251,8 +242,8 @@ for i in $(seq 1 10); do
   sleep 1
 done
 
-# ── 9. Reverse proxy setup ───────────────────────────
-step "Reverse proxy setup"
+# ── 9. Настройка reverse proxy ───────────────────────
+step "Настройка reverse proxy"
 
 echo ""
 echo "  Панель слушает localhost:8888."
@@ -287,7 +278,7 @@ if [[ "${SETUP_PROXY}" =~ ^[Yy]$ ]]; then
   case "$PROXY_CHOICE" in
     1)
       # ── Caddy ──
-      info "Installing Caddy..."
+      info "Установка Caddy..."
       if ! command -v caddy >/dev/null 2>&1; then
         if [[ "$PKG_MANAGER" == "apt-get" ]]; then
           apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https 2>/dev/null || true
@@ -295,7 +286,7 @@ if [[ "${SETUP_PROXY}" =~ ^[Yy]$ ]]; then
           curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' 2>/dev/null | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null 2>&1 || true
           apt-get update -qq 2>/dev/null || true
           apt-get install -y -qq caddy 2>/dev/null || {
-            warn "Не удалось установить Caddy через apt — пробую binary"
+            warn "Не удалось установить Caddy через apt — пробую бинарник"
             curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=$(dpkg --print-architecture)" -o /usr/bin/caddy 2>/dev/null && chmod +x /usr/bin/caddy || err "Не удалось установить Caddy"
           }
         else
@@ -304,14 +295,14 @@ if [[ "${SETUP_PROXY}" =~ ^[Yy]$ ]]; then
           }
         fi
       fi
-      ok "Caddy ready"
+      ok "Caddy готов"
 
-      # Build Caddyfile
+      # Генерация Caddyfile
       CADDYFILE="/etc/caddy/Caddyfile"
       mkdir -p /etc/caddy
 
       {
-        echo "# AdminPanel — auto-generated by install.sh"
+        echo "# AdminPanel — сгенерировано install.sh"
         echo "${PANEL_DOMAIN} {"
         echo "    reverse_proxy localhost:8888"
         echo "}"
@@ -325,25 +316,25 @@ if [[ "${SETUP_PROXY}" =~ ^[Yy]$ ]]; then
 
       systemctl enable caddy --now 2>/dev/null || caddy start 2>/dev/null || true
       systemctl reload caddy 2>/dev/null || caddy reload --config "$CADDYFILE" 2>/dev/null || true
-      ok "Caddy configured — SSL will be obtained automatically"
+      ok "Caddy настроен — SSL будет получен автоматически"
       ;;
 
     2)
       # ── Nginx ──
-      info "Installing Nginx + Certbot..."
+      info "Установка Nginx + Certbot..."
       if [[ "$PKG_MANAGER" == "apt-get" ]]; then
         apt-get install -y -qq nginx certbot python3-certbot-nginx 2>/dev/null || err "Не удалось установить Nginx"
       else
         yum install -y -q nginx certbot python3-certbot-nginx 2>/dev/null || err "Не удалось установить Nginx"
       fi
-      ok "Nginx + Certbot installed"
+      ok "Nginx + Certbot установлены"
 
       NGINX_CONF="/etc/nginx/sites-available/adminpanel"
       mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
 
-      # Build Nginx config
+      # Генерация конфига Nginx
       {
-        echo "# AdminPanel — auto-generated by install.sh"
+        echo "# AdminPanel — сгенерировано install.sh"
         echo "server {"
         echo "    listen 80;"
         echo "    server_name ${PANEL_DOMAIN};"
@@ -389,51 +380,51 @@ if [[ "${SETUP_PROXY}" =~ ^[Yy]$ ]]; then
       rm -f /etc/nginx/sites-enabled/default
       systemctl enable nginx --now 2>/dev/null || true
       nginx -t 2>/dev/null && systemctl reload nginx 2>/dev/null
-      ok "Nginx configured"
+      ok "Nginx настроен"
 
-      # SSL via Certbot
+      # SSL через Certbot
       CERTBOT_DOMAINS="-d ${PANEL_DOMAIN}"
       [[ -n "$LK_DOMAIN" ]] && CERTBOT_DOMAINS="${CERTBOT_DOMAINS} -d ${LK_DOMAIN}"
 
-      info "Obtaining SSL certificate..."
+      info "Получение SSL-сертификата..."
       certbot --nginx ${CERTBOT_DOMAINS} --non-interactive --agree-tos --register-unsafely-without-email 2>/dev/null && {
-        ok "SSL certificate obtained"
+        ok "SSL-сертификат получен"
       } || {
-        warn "Certbot failed — SSL not configured. Run manually:"
+        warn "Certbot не сработал — SSL не настроен. Запустите вручную:"
         warn "  certbot --nginx ${CERTBOT_DOMAINS}"
       }
       ;;
 
     *)
-      info "Reverse proxy setup skipped"
+      info "Настройка reverse proxy пропущена"
       ;;
   esac
 fi
 
-# ── 10. Summary ───────────────────────────────────────
+# ── 10. Итог ──────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${G}  AdminPanel $VERSION installed successfully!${N}"
+echo -e "${G}  AdminPanel $VERSION успешно установлен!${N}"
 echo ""
-echo "  Directory: $INSTALL_DIR"
+echo "  Директория: $INSTALL_DIR"
 echo ""
 if [[ -n "$PANEL_DOMAIN" ]]; then
-  echo -e "  ${C}Panel:${N}  https://${PANEL_DOMAIN}/webpanel/"
-  [[ -n "$LK_DOMAIN" ]] && echo -e "  ${C}LK:${N}     https://${LK_DOMAIN}/"
+  echo -e "  ${C}Панель:${N}  https://${PANEL_DOMAIN}/webpanel/"
+  [[ -n "$LK_DOMAIN" ]] && echo -e "  ${C}ЛК:${N}      https://${LK_DOMAIN}/"
 else
-  echo "  Port: 8888 (localhost only)"
-  echo "  Set up Caddy/Nginx to access by domain"
+  echo "  Порт: 8888 (только localhost)"
+  echo "  Настройте Caddy/Nginx для доступа по домену"
 fi
 echo ""
 if [[ -n "$INIT_PASSWORD" ]]; then
-  echo -e "  ${Y}First login credentials:${N}"
-  echo "  Login:    admin"
-  echo -e "  Password: ${G}${INIT_PASSWORD}${N}"
-  echo -e "  ${R}Change password after first login!${N}"
+  echo -e "  ${Y}Данные для первого входа:${N}"
+  echo "  Логин:  admin"
+  echo -e "  Пароль: ${G}${INIT_PASSWORD}${N}"
+  echo -e "  ${R}Смените пароль после первого входа!${N}"
   echo ""
 fi
-echo "  Useful commands:"
-echo "  • Logs:    docker logs -f adminpanel"
-echo "  • Stop:    docker compose -f $INSTALL_DIR/docker-compose.yml down"
-echo "  • Restart: docker compose -f $INSTALL_DIR/docker-compose.yml restart"
+echo "  Полезные команды:"
+echo "  • Логи:        docker logs -f adminpanel"
+echo "  • Остановка:   docker compose -f $INSTALL_DIR/docker-compose.yml down"
+echo "  • Перезапуск:  docker compose -f $INSTALL_DIR/docker-compose.yml restart"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
