@@ -297,22 +297,40 @@ if [[ "${SETUP_PROXY}" =~ ^[Yy]$ ]]; then
       fi
       ok "Caddy готов"
 
-      # Генерация Caddyfile
+      # Генерация Caddyfile — добавление блоков (не перезаписывая существующие)
       CADDYFILE="/etc/caddy/Caddyfile"
       mkdir -p /etc/caddy
+      [[ -f "$CADDYFILE" ]] || touch "$CADDYFILE"
 
-      {
-        echo "# AdminPanel — сгенерировано install.sh"
-        echo "${PANEL_DOMAIN} {"
-        echo "    reverse_proxy localhost:8888"
-        echo "}"
-        if [[ -n "$LK_DOMAIN" ]]; then
+      # Добавляем домен панели, если его ещё нет в конфиге
+      if grep -q "${PANEL_DOMAIN}" "$CADDYFILE" 2>/dev/null; then
+        warn "Домен ${PANEL_DOMAIN} уже есть в Caddyfile — пропускаю"
+      else
+        {
           echo ""
-          echo "${LK_DOMAIN} {"
+          echo "# AdminPanel"
+          echo "${PANEL_DOMAIN} {"
           echo "    reverse_proxy localhost:8888"
           echo "}"
+        } >> "$CADDYFILE"
+        ok "Добавлен ${PANEL_DOMAIN} в Caddyfile"
+      fi
+
+      # Добавляем домен ЛК, если указан и его ещё нет
+      if [[ -n "$LK_DOMAIN" ]]; then
+        if grep -q "${LK_DOMAIN}" "$CADDYFILE" 2>/dev/null; then
+          warn "Домен ${LK_DOMAIN} уже есть в Caddyfile — пропускаю"
+        else
+          {
+            echo ""
+            echo "# AdminPanel — Личный кабинет"
+            echo "${LK_DOMAIN} {"
+            echo "    reverse_proxy localhost:8888"
+            echo "}"
+          } >> "$CADDYFILE"
+          ok "Добавлен ${LK_DOMAIN} в Caddyfile"
         fi
-      } > "$CADDYFILE"
+      fi
 
       systemctl enable caddy --now 2>/dev/null || caddy start 2>/dev/null || true
       systemctl reload caddy 2>/dev/null || caddy reload --config "$CADDYFILE" 2>/dev/null || true
@@ -331,6 +349,11 @@ if [[ "${SETUP_PROXY}" =~ ^[Yy]$ ]]; then
 
       NGINX_CONF="/etc/nginx/sites-available/adminpanel"
       mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
+
+      # Проверяем, нет ли уже конфига для этого домена
+      if [[ -f "$NGINX_CONF" ]] && grep -q "${PANEL_DOMAIN}" "$NGINX_CONF" 2>/dev/null; then
+        warn "Конфиг Nginx для ${PANEL_DOMAIN} уже существует — перезаписываю"
+      fi
 
       # Генерация конфига Nginx
       {
@@ -377,7 +400,11 @@ if [[ "${SETUP_PROXY}" =~ ^[Yy]$ ]]; then
       } > "$NGINX_CONF"
 
       ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/adminpanel
-      rm -f /etc/nginx/sites-enabled/default
+      # Удаляем default только если других сайтов нет
+      OTHER_SITES=$(find /etc/nginx/sites-enabled/ -type l ! -name adminpanel ! -name default 2>/dev/null | wc -l)
+      if [[ "$OTHER_SITES" -eq 0 ]]; then
+        rm -f /etc/nginx/sites-enabled/default
+      fi
       systemctl enable nginx --now 2>/dev/null || true
       nginx -t 2>/dev/null && systemctl reload nginx 2>/dev/null
       ok "Nginx настроен"
