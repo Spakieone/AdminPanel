@@ -58,6 +58,27 @@ if [[ "$AVAIL_MB" -lt 2048 ]]; then
   [[ "${CONT_DISK:-}" =~ ^[Yy]$ ]] || err "Not enough disk space"
 fi
 
+# ── 1.2. Swap check (build needs ~1.5GB RAM) ──────────
+TOTAL_RAM_MB=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo "0")
+SWAP_MB=$(awk '/SwapTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo "0")
+
+if [[ "$TOTAL_RAM_MB" -lt 1536 && "$SWAP_MB" -lt 512 ]]; then
+  step "Setting up swap (${TOTAL_RAM_MB}MB RAM detected)"
+  if [[ ! -f /swapfile ]]; then
+    fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+    chmod 600 /swapfile
+    mkswap /swapfile >/dev/null 2>&1
+    swapon /swapfile 2>/dev/null
+    if ! grep -q '/swapfile' /etc/fstab 2>/dev/null; then
+      echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    fi
+    ok "2GB swap created"
+  else
+    swapon /swapfile 2>/dev/null || true
+    ok "Swap already exists"
+  fi
+fi
+
 # ── 2. Base packages ──────────────────────────────────
 step "Installing base packages"
 
