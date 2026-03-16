@@ -14,8 +14,7 @@ services:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - .:/host-project
-      # Uncomment if bot API module is installed:
-      # - /root/bot/modules/api/version.json:/root/bot/modules/api/version.json:ro
+      - /root/bot/modules/api/version.json:/root/bot/modules/api/version.json:ro
     ports:
       - "127.0.0.1:8888:8888"
     extra_hosts:

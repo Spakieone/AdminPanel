@@ -1591,7 +1591,7 @@ async def check_version_update() -> Dict[str, Any]:
     return result
 
 
-GITHUB_PANEL_REPO = os.environ.get("ADMINPANEL_GITHUB_REPO", "")
+GITHUB_PANEL_REPO = os.environ.get("ADMINPANEL_GITHUB_REPO", "Spakieone/AdminPanel")
 BOT_API_MODULE_CHECK_URL = os.environ.get("ADMINPANEL_BOT_API_CHECK_URL", "")
 BOT_API_VERSION_FILE = Path("/root/bot/modules/api/version.json")
 
