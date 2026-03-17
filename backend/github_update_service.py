@@ -391,12 +391,37 @@ class GitHubUpdateManager:
             })
             self._append_log("Перезапуск контейнера...")
 
-            subprocess.Popen(  # nosec
-                ["bash", "-c", f"sleep 2 && docker compose -f {compose_file} up -d --force-recreate"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
+            # Use host-side execution: run docker compose via a detached container
+            # so it survives when our own container is force-recreated.
+            host_dir = os.environ.get("HOST_PROJECT_DIR", "/root/adminpanel")
+            # Try to use a sibling container to run compose up on the host.
+            # Fallback to Popen inside current container (works if daemon completes request before kill).
+            try:
+                subprocess.run(  # nosec
+                    [
+                        "docker", "run", "--rm", "-d",
+                        "--name", "adminpanel-updater",
+                        "-v", "/var/run/docker.sock:/var/run/docker.sock",
+                        "-v", f"{host_dir}:{host_dir}",
+                        "-w", host_dir,
+                        "docker:cli",
+                        "sh", "-c",
+                        f"sleep 3 && docker compose -f {host_dir}/docker-compose.yml up -d --force-recreate",
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=30,
+                )
+                self._append_log("Обновление запущено через вспомогательный контейнер")
+            except Exception:
+                # Fallback: run directly (may work if docker daemon processes the request atomically)
+                subprocess.Popen(  # nosec
+                    ["bash", "-c", f"sleep 2 && docker compose -f {compose_file} up -d --force-recreate"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                self._append_log("Обновление запущено напрямую")
             self._append_log("Контейнер перезапускается. Панель будет доступна через ~30 секунд.")
 
         except Exception as e:

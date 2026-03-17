@@ -253,6 +253,22 @@ function UpdatePanel() {
     try {
       const headers = await getAuthHeaders()
       const res = await apiFetch("/api/github-update/run", { method: "POST", headers })
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Требуется авторизация. Перезайдите в панель.")
+        } else if (res.status === 403) {
+          setError("Недостаточно прав. Нужна роль super_admin.")
+        } else {
+          try {
+            const errData = await res.json()
+            setError(errData.detail || `Ошибка сервера (HTTP ${res.status})`)
+          } catch {
+            setError(`Ошибка сервера (HTTP ${res.status})`)
+          }
+        }
+        setProgress(0)
+        return
+      }
       const data = await res.json()
       if (data.started) {
         sessionStartedRef.current = true

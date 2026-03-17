@@ -182,12 +182,20 @@ step "Настройка конфигурации"
 
 # .env файл
 if [[ ! -f "$INSTALL_DIR/.env" ]]; then
+  JWT_SECRET="$(openssl rand -hex 64 2>/dev/null || head -c 128 /dev/urandom | od -A n -t x1 | tr -d ' \n')"
   cat > "$INSTALL_DIR/.env" << ENV_EOF
 HOST_PROJECT_DIR=${INSTALL_DIR}
+ADMINPANEL_JWT_SECRET=${JWT_SECRET}
 ENV_EOF
   info ".env создан"
 else
   ok ".env уже существует"
+  # Добавить JWT_SECRET если отсутствует (обновление со старой версии)
+  if ! grep -q "ADMINPANEL_JWT_SECRET" "$INSTALL_DIR/.env"; then
+    JWT_SECRET="$(openssl rand -hex 64 2>/dev/null || head -c 128 /dev/urandom | od -A n -t x1 | tr -d ' \n')"
+    echo "ADMINPANEL_JWT_SECRET=${JWT_SECRET}" >> "$INSTALL_DIR/.env"
+    info "JWT секрет добавлен в .env"
+  fi
 fi
 
 # Создание директории данных
@@ -212,8 +220,11 @@ fi
 
 info "Сборка образа (может занять несколько минут)..."
 docker compose -f docker-compose.yml build || err "Ошибка сборки Docker. Проверьте Dockerfile и логи."
-
 ok "Образ собран"
+
+# Скачиваем docker:cli для автообновлений (маленький образ ~30MB)
+info "Подготовка образа для автообновлений..."
+docker pull docker:cli >/dev/null 2>&1 || warn "Не удалось скачать docker:cli (автообновление может работать нестабильно)"
 
 step "Запуск контейнера"
 
