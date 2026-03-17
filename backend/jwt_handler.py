@@ -15,14 +15,25 @@ except ImportError:
 
 _SECRET: str = os.environ.get("ADMINPANEL_JWT_SECRET", "").strip()
 if not _SECRET:
-    # Генерируем случайный секрет при старте. Токены будут инвалидированы при рестарте,
-    # но это безопаснее, чем хардкоженный секрет. В продакшне задайте ADMINPANEL_JWT_SECRET.
-    import logging as _logging
+    # No secret in env — generate one and persist to .env so sessions survive restarts.
     _SECRET = secrets.token_urlsafe(48)
-    _logging.getLogger("jwt_handler").warning(
-        "ADMINPANEL_JWT_SECRET not set — using random secret (sessions will reset on restart). "
-        "Set ADMINPANEL_JWT_SECRET env variable for persistent sessions."
-    )
+    os.environ["ADMINPANEL_JWT_SECRET"] = _SECRET
+    # Try to persist to .env file (in /data/ for Docker, or project root for bare-metal)
+    for _env_candidate in [
+        Path(os.environ.get("ADMINPANEL_DATA_DIR", "")) / ".." / ".env",  # Docker: /data/../.env → /app/.env
+        Path("/host-project/.env"),  # Docker: host-mounted project
+        Path(__file__).resolve().parent.parent / ".env",  # bare-metal: project root
+    ]:
+        try:
+            _env_path = _env_candidate.resolve()
+            if _env_path.parent.is_dir():
+                _existing = _env_path.read_text(encoding="utf-8") if _env_path.exists() else ""
+                if "ADMINPANEL_JWT_SECRET" not in _existing:
+                    with _env_path.open("a", encoding="utf-8") as _f:
+                        _f.write(f"\nADMINPANEL_JWT_SECRET={_SECRET}\n")
+                    break
+        except Exception:
+            continue
 
 ALGORITHM = "HS256"
 ACCESS_EXP = 8 * 60 * 60    # 8 часов
