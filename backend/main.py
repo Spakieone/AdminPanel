@@ -979,7 +979,7 @@ async def _lk_tg_call_bot(path: str, method: str = "GET", body: Optional[bytes] 
                 break
     if not bp:
         raise HTTPException(status_code=503, detail="Бот не настроен")
-    base_url = str(bp.get("baseUrl") or "").strip().rstrip("/")
+    base_url = get_bot_api_base_url(bp)
     token = str(bp.get("token") or "").strip()
     admin_id = str(bp.get("adminId") or "").strip()
     if not base_url:

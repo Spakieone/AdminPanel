@@ -37,12 +37,16 @@ export const SignInPage = ({ className }: SignInPageProps) => {
   const [error, setError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
   const [botUsername, setBotUsername] = useState("");
+  const [botId, setBotId] = useState<number>(0);
 
   useEffect(() => {
     fetch("/api/lk/auth/telegram/meta", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d?.ok) setBotUsername(d.bot_username || "");
+        if (d?.ok) {
+          setBotUsername(d.bot_username || "");
+          setBotId(d.bot_id || 0);
+        }
       })
       .catch(() => {});
     fetch("/api/lk/public/settings", { credentials: "include" })
@@ -51,47 +55,51 @@ export const SignInPage = ({ className }: SignInPageProps) => {
       .catch(() => {});
   }, []);
 
-  const handleTelegramLogin = () => {
-    if (!botUsername) return;
-    // Inject Telegram Login Widget script dynamically — it opens the auth popup itself
-    const container = document.getElementById("tg-login-widget-container");
-    if (!container) return;
-    container.innerHTML = "";
-    // Define global callback
-    // @ts-expect-error Telegram Login Widget global callback
-    window.__tg_login_callback = async (user: Record<string, unknown>) => {
+  const submitTgUser = async (user: Record<string, unknown>) => {
+    setLoading(true);
+    setError(null);
+    try {
       const json = JSON.stringify(user);
       const b64 = btoa(json).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await fetch("/api/lk/auth/telegram/login", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tgAuthResult: b64 }),
-        });
-        if (r.ok) {
-          setStep("success");
-        } else {
-          const d = await r.json();
-          setError(d.detail || "Ошибка входа через Telegram");
-        }
-      } catch {
-        setError("Ошибка соединения");
-      } finally {
-        setLoading(false);
+      const r = await fetch("/api/lk/auth/telegram/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tgAuthResult: b64 }),
+      });
+      if (r.ok) {
+        setStep("success");
+      } else {
+        const d = await r.json();
+        setError(d.detail || "Ошибка входа через Telegram");
       }
-    };
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.setAttribute("data-telegram-login", botUsername);
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-onauth", "__tg_login_callback(user)");
-    script.setAttribute("data-request-access", "write");
-    script.async = true;
-    container.appendChild(script);
+    } catch {
+      setError("Ошибка соединения");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Listen for postMessage from Telegram OAuth popup
+  useEffect(() => {
+    if (!botUsername) return;
+    const handleMessage = (e: MessageEvent) => {
+      if (e.origin !== "https://oauth.telegram.org") return;
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+        if (data?.event === "auth_result") {
+          if (data.result) {
+            submitTgUser(data.result);
+          } else {
+            setError("Авторизация отменена");
+          }
+        }
+      } catch { /* ignore non-json messages */ }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [botUsername]);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startTimer = () => {
@@ -230,15 +238,28 @@ export const SignInPage = ({ className }: SignInPageProps) => {
                     </div>
                     <div className="space-y-4">
                       {botUsername && (
-                        <>
-                          <button onClick={handleTelegramLogin} id="tg-login-btn" className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full py-3 px-4 transition-colors">
-                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L6.145 13.5l-2.945-.924c-.64-.203-.654-.64.136-.954l11.508-4.44c.534-.194 1.001.13.718.066z"/>
-                            </svg>
-                            <span>Войти через Telegram</span>
-                          </button>
-                          <div id="tg-login-widget-container" className="flex justify-center" />
-                        </>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const origin = window.location.origin;
+                            const w = 550, h = 470;
+                            const left = Math.max(0, (screen.width - w) / 2);
+                            const top = Math.max(0, (screen.height - h) / 2);
+                            window.open(
+                              `https://oauth.telegram.org/auth?bot_id=${botId}&origin=${encodeURIComponent(origin)}&request_access=write&embed=0`,
+                              "TelegramAuth",
+                              `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=no`
+                            );
+                          }}
+                          disabled={loading}
+                          className="w-full flex items-center justify-center gap-3 rounded-full py-3 px-5 font-medium text-white transition-colors hover:bg-[#2CA5E0]/90 disabled:opacity-50"
+                          style={{ background: '#2CA5E0' }}
+                        >
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.492-1.302.48-.428-.012-1.252-.242-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                          </svg>
+                          Войти через Telegram
+                        </button>
                       )}
                       <div className="flex items-center gap-4">
                         <div className="h-px bg-white/10 flex-1" />
