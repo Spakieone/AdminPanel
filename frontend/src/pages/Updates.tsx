@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react"
-import { apiFetch, getAuthHeaders } from "../api/client"
+import { useState, useEffect } from "react"
+import { apiFetch } from "../api/client"
 
 type VersionInfo = {
   current_version: string
@@ -13,463 +13,6 @@ type VersionInfo = {
 
 type Status = "idle" | "loading" | "done" | "error"
 
-type UpdateStatus = {
-  running: boolean
-  stage?: string
-  last_triggered_by?: string
-  last_started_at?: number
-  last_finished_at?: number
-  last_exit_code?: number | null
-}
-
-const STAGE_PROGRESS: Record<string, number> = {
-  start: 5,
-  pull: 40,
-  build: 70,
-  done: 100,
-  // bare-metal stages
-  backup: 20,
-  download: 35,
-  extract: 50,
-  replace: 60,
-  restore: 65,
-  install: 75,
-  restart: 90,
-  failed: 0,
-}
-
-
-const SEGMENTS = [
-  { label: "Старт",    pct: 5,   color: "#818cf8" },
-  { label: "Git pull", pct: 40,  color: "#34d399" },
-  { label: "Сборка",  pct: 70,  color: "#60a5fa" },
-  { label: "Запуск / Готово", pct: 98, color: "#4ade80" },
-]
-
-function SegmentedProgress({ pct }: { pct: number }) {
-  const animRef = useRef<number | null>(null)
-  const displayRef = useRef(0)
-  const [display, setDisplay] = useState(0)
-
-  const animate = useCallback((target: number) => {
-    if (animRef.current) cancelAnimationFrame(animRef.current)
-    const step = () => {
-      const diff = target - displayRef.current
-      if (Math.abs(diff) < 0.3) {
-        displayRef.current = target
-        setDisplay(target)
-        return
-      }
-      displayRef.current += diff * 0.08
-      setDisplay(Math.round(displayRef.current * 10) / 10)
-      animRef.current = requestAnimationFrame(step)
-    }
-    animRef.current = requestAnimationFrame(step)
-  }, [])
-
-  useEffect(() => {
-    animate(pct)
-    return () => { if (animRef.current) cancelAnimationFrame(animRef.current) }
-  }, [pct, animate])
-
-  // Find active segment color
-  let activeColor = SEGMENTS[0].color
-  for (const seg of SEGMENTS) {
-    if (display >= seg.pct - 1) activeColor = seg.color
-  }
-
-  return (
-    <div style={{ width: "100%", userSelect: "none" }}>
-      {/* Segment labels */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        {SEGMENTS.map((seg) => {
-          const reached = display >= seg.pct - 1
-          return (
-            <div key={seg.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: reached ? seg.color : "#2a2a2a",
-                boxShadow: reached ? `0 0 6px ${seg.color}` : "none",
-                transition: "background 0.4s, box-shadow 0.4s",
-              }} />
-              <span style={{ fontSize: 10, color: reached ? seg.color : "#444", transition: "color 0.4s", whiteSpace: "nowrap" }}>
-                {seg.label}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Progress track */}
-      <div style={{ width: "100%", height: 10, background: "#1a1a1a", borderRadius: 999, overflow: "hidden", border: "1px solid #2a2a2a" }}>
-        <div style={{
-          height: "100%",
-          width: `${display}%`,
-          background: `linear-gradient(90deg, #818cf8, ${activeColor})`,
-          borderRadius: 999,
-          transition: "width 0.1s linear",
-          boxShadow: `0 0 8px ${activeColor}88`,
-        }} />
-      </div>
-
-      {/* Percentage */}
-      <div style={{ textAlign: "center", marginTop: 6, fontSize: 12, color: activeColor, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-        {Math.round(display)}%
-      </div>
-    </div>
-  )
-}
-
-// Progress based on log line count of current run (70–94%)
-// A typical full build produces ~250 lines; we map line count linearly into that range
-function buildSubProgress(log: string[]): number | null {
-  // Find the last "Update started by" line — everything after it is the current run
-  let startIdx = -1
-  for (let i = log.length - 1; i >= 0; i--) {
-    if (log[i].toLowerCase().includes("update started by")) {
-      startIdx = i
-      break
-    }
-  }
-  if (startIdx < 0) return null
-
-  const lines = log.slice(startIdx)
-  const text = lines.join("\n")
-  const tl = text.toLowerCase()
-
-  // Not yet in docker build phase
-  if (!tl.includes("сборка docker") && !tl.includes("sending build context") && !tl.includes("image adminpanel") && !/step \d+\/\d+/i.test(text)) return null
-
-  // Terminal markers (exact stages)
-  if (tl.includes("перезапуск контейнера") || tl.includes("контейнер перезапускается")) return 98
-  if (tl.includes("successfully built") || tl.includes("successfully tagged") || tl.includes("образ собран")) return 95
-
-  // Map line count linearly: build starts ~10 lines in, full build ~250 lines
-  // Range: 70% (build start) → 94% (just before successfully built)
-  const buildStartLine = lines.findIndex(l => l.toLowerCase().includes("сборка docker") || l.toLowerCase().includes("image adminpanel"))
-  const buildLines = buildStartLine >= 0 ? lines.length - buildStartLine : lines.length
-  // ~250 lines = full build; clamp to 70–94
-  const pct = 70 + Math.min(24, Math.round((buildLines / 250) * 24))
-  return pct
-}
-
-function UpdatePanel() {
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
-  const [running, setRunning] = useState(false)
-  const [log, setLog] = useState<string[]>([])
-  const [showLog, setShowLog] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [donePhase, setDonePhase] = useState(false) // true after stage=done, before container restarts
-  const sessionStartedRef = useRef(false) // true only if update was started in this browser session
-  const startedAtRef = useRef<number | undefined>(undefined)
-  const [error, setError] = useState<string | null>(null)
-  const [restarting, setRestarting] = useState(false)
-  const logRef = useRef<HTMLDivElement>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const failCountRef = useRef(0)
-
-  const fetchStatus = async () => {
-    try {
-      const res = await apiFetch("/api/github-update/status")
-      const data = await res.json()
-      if (data.ok) {
-        failCountRef.current = 0
-        setRestarting(false)
-        setUpdateStatus(data.status)
-        const isRunning = !!data.status?.running
-        setRunning(isRunning)
-        if (data.status?.last_started_at) startedAtRef.current = data.status.last_started_at
-        const stage = data.status?.stage as string | undefined
-        if (isRunning && stage && stage in STAGE_PROGRESS) {
-          setProgress(p => Math.max(p, STAGE_PROGRESS[stage]))
-        } else if (!isRunning && sessionStartedRef.current && (data.status?.last_exit_code === 0 || stage === "done")) {
-          setProgress(100)
-          setDonePhase(true)
-        }
-      }
-    } catch {
-      failCountRef.current += 1
-      if (failCountRef.current >= 2) {
-        setRestarting(true)
-        setDonePhase(false)
-        setProgress(95)
-      }
-    }
-  }
-
-  const fetchLog = async () => {
-    try {
-      const res = await apiFetch("/api/github-update/log?lines=600")
-      const data = await res.json()
-      if (data.ok) {
-        const lines: string[] = data.lines || []
-        setLog(lines)
-        // Refine progress from log line count (only moves forward, never back)
-        const sub = buildSubProgress(lines)
-        if (sub !== null) {
-          setProgress(p => (sub > p && p < 100) ? sub : p)
-        }
-      }
-    } catch {}
-  }
-
-  useEffect(() => {
-    fetchStatus()
-  }, [])
-
-  useEffect(() => {
-    if (running || restarting) {
-      setShowLog(true)
-      setProgress(p => p < 5 ? 5 : p)
-      // fetchStatus first so startedAtRef is populated before fetchLog uses it
-      if (running) fetchStatus().then(() => fetchLog())
-      pollRef.current = setInterval(async () => {
-        await fetchStatus()
-        if (running) await fetchLog()
-      }, 2000)
-    } else {
-      if (pollRef.current) {
-        clearInterval(pollRef.current)
-        pollRef.current = null
-      }
-      if (showLog) fetchLog()
-    }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-    }
-  }, [running, restarting])
-
-  useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight
-    }
-  }, [log])
-
-  const startUpdate = async () => {
-    setError(null)
-    setLog([])
-    setProgress(5)
-    setDonePhase(false)
-    try {
-      const headers = await getAuthHeaders()
-      const res = await apiFetch("/api/github-update/run", { method: "POST", headers })
-      if (!res.ok) {
-        if (res.status === 401) {
-          setError("Требуется авторизация. Перезайдите в панель.")
-        } else if (res.status === 403) {
-          setError("Недостаточно прав. Нужна роль super_admin.")
-        } else {
-          try {
-            const errData = await res.json()
-            setError(errData.detail || `Ошибка сервера (HTTP ${res.status})`)
-          } catch {
-            setError(`Ошибка сервера (HTTP ${res.status})`)
-          }
-        }
-        setProgress(0)
-        return
-      }
-      const data = await res.json()
-      if (data.started) {
-        sessionStartedRef.current = true
-        setRunning(true)
-        setShowLog(true)
-      } else {
-        setError(data.detail || "Не удалось запустить обновление")
-        setProgress(0)
-      }
-    } catch {
-      setError("Ошибка соединения. Проверьте права доступа (нужна роль super_admin).")
-      setProgress(0)
-    }
-  }
-
-  const lastFail = updateStatus && !updateStatus.running && updateStatus.last_exit_code != null && updateStatus.last_exit_code !== 0 && updateStatus.last_finished_at
-  const showProgress = (running || donePhase || restarting) && sessionStartedRef.current
-
-  return (
-    <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] flex items-center justify-center text-[var(--accent)]">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 1 0 .49-3.51" />
-            </svg>
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-primary">Обновление панели</div>
-            <div className="text-xs text-muted mt-0.5">Загрузка и установка с GitHub</div>
-          </div>
-        </div>
-        {restarting ? (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#f59e0b_12%,transparent)] text-amber-400 shrink-0 animate-pulse">Перезапуск...</span>
-        ) : running ? (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#3b82f6_12%,transparent)] text-blue-400 shrink-0 animate-pulse">Выполняется...</span>
-        ) : donePhase ? (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#f59e0b_12%,transparent)] text-amber-400 shrink-0 animate-pulse">Перезапуск...</span>
-        ) : updateStatus?.last_exit_code === 0 && updateStatus?.last_finished_at ? (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#22c55e_12%,transparent)] text-emerald-400 shrink-0">Успешно</span>
-        ) : lastFail ? (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[color-mix(in_srgb,#ef4444_12%,transparent)] text-rose-400 shrink-0">Ошибка</span>
-        ) : null}
-      </div>
-
-      <div className="text-xs text-muted bg-overlay-xs rounded-xl px-3 py-2.5 leading-relaxed">
-        Обновление загружает последнюю версию с GitHub, создаёт резервную копию данных и перезапускает контейнер.
-      </div>
-
-      {/* Progress bar */}
-      {showProgress && (
-        <>
-          <SegmentedProgress pct={progress} />
-          {donePhase && !restarting && (
-            <div className="text-xs text-amber-400 bg-[color-mix(in_srgb,#f59e0b_8%,transparent)] rounded-lg px-3 py-2 text-center animate-pulse">
-              Контейнер перезапускается. Панель будет доступна через ~30 секунд.
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="text-xs text-rose-400 bg-[color-mix(in_srgb,#ef4444_8%,transparent)] rounded-lg px-3 py-2">
-          {error}
-        </div>
-      )}
-
-      {/* Buttons */}
-      <div className="flex gap-2">
-        <button
-          onClick={startUpdate}
-          disabled={running}
-          className="flex-1 py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: "color-mix(in srgb, #22c55e 14%, transparent)",
-            color: "#22c55e",
-            border: "1px solid color-mix(in srgb, #22c55e 30%, transparent)",
-          }}
-        >
-          {running ? "Обновляется..." : "Обновить панель"}
-        </button>
-        {log.length > 0 && (
-          <button
-            onClick={() => setShowLog(v => !v)}
-            className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
-            style={{
-              background: "color-mix(in srgb, #3b82f6 10%, transparent)",
-              color: "#60a5fa",
-              border: "1px solid color-mix(in srgb, #3b82f6 25%, transparent)",
-            }}
-          >
-            {showLog ? "Скрыть лог" : "Лог"}
-          </button>
-        )}
-      </div>
-
-      {/* Log */}
-      {showLog && log.length > 0 && (
-        <div
-          ref={logRef}
-          className="rounded-xl overflow-y-auto"
-          style={{ maxHeight: 600, background: "#0c0c0c", border: "1px solid #222", fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
-        >
-          {/* Lines */}
-          <div style={{ padding: "10px 0" }}>
-            {log.map((line, i) => {
-              // Parse timestamp
-              const tsMatch = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s*(.*)$/)
-              const ts = tsMatch ? tsMatch[1].slice(11) : "" // only HH:MM:SS
-              const text = tsMatch ? tsMatch[2] : line
-
-              const tlo = text.toLowerCase()
-
-              // Classify
-              const isError = tlo.includes("error") || tlo.includes("ошибк") || tlo.includes("failed") || tlo.includes("fatal")
-              const isWarn = !isError && (tlo.includes("warn") || tlo.includes("deprecated") || tlo.includes("level=warning"))
-              const isSuccess = !isError && (
-                /[✓✔]/.test(text) || tlo.includes("успешн") || tlo.includes("обновлён") ||
-                tlo.includes("образ собран") || tlo.includes("код обновлён") ||
-                (tlo.includes("built in") && /\d+\.\d+s/.test(tlo)) ||
-                tlo.includes("successfully built") || tlo.includes("successfully tagged")
-              )
-              const isStep = !isError && tlo.includes("step ") && /\d+\/\d+/.test(tlo)
-              const isArrow = text.trimStart().startsWith("--->") || text.trimStart().startsWith("==>")
-              const isCmd = text.trimStart().startsWith("$")
-              const isSection = !isError && !isCmd && (
-                tlo.includes("загрузка обновлений") || tlo.includes("сборка docker") ||
-                tlo.includes("перезапуск") || tlo.includes("update started by") ||
-                tlo.includes("project dir")
-              )
-              const isNpmAsset = /dist[/-]/.test(text) && /\d+\.\d+ k[bB]/.test(text)
-              const isSendingContext = tlo.includes("sending build context")
-              const isGitHash = /^[a-f0-9]{7,40}$/.test(text.trim()) || text.startsWith("HEAD is now at")
-              const isEmpty = text.trim() === ""
-
-              if (isEmpty) return <div key={i} style={{ height: 6 }} />
-
-              const textColor = isError ? "#f87171"
-                : isWarn ? "#fbbf24"
-                : isSuccess ? "#4ade80"
-                : isSection ? "#c084fc"
-                : isStep ? "#60a5fa"
-                : isCmd ? "#cbd5e1"
-                : isArrow ? "#566577"
-                : isNpmAsset || isSendingContext ? "#566577"
-                : isGitHash ? "#7a8fa6"
-                : "#6ee7b7"
-
-              const lineNum = String(i + 1).padStart(4, " ")
-
-              // Highlight sizes in sending context lines and npm asset lines
-              const renderText = () => {
-                const raw = isCmd ? text.trimStart().replace(/^\$\s*/, "") : text
-                if (isSendingContext || isNpmAsset) {
-                  // Highlight numbers with units
-                  const parts = raw.split(/(\d+(?:\.\d+)?\s*(?:MB|KB|kB|B|kb|mb)\b)/)
-                  return parts.map((p, j) =>
-                    /\d/.test(p) && /MB|KB|kB|B|kb|mb/.test(p)
-                      ? <span key={j} style={{ color: "#94a3b8" }}>{p}</span>
-                      : <span key={j}>{p}</span>
-                  )
-                }
-                return raw
-              }
-
-              return (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    gap: 0,
-                    opacity: isNpmAsset || isSendingContext ? 0.5 : isArrow ? 0.6 : 1,
-                    background: isError ? "rgba(239,68,68,0.07)" : isWarn ? "rgba(251,191,36,0.04)" : isSuccess && !isNpmAsset ? "rgba(74,222,128,0.03)" : "transparent",
-                  }}
-                >
-                  {/* Line number */}
-                  <span style={{ color: "#3a3a3a", fontSize: 11, padding: "0 10px 0 14px", flexShrink: 0, userSelect: "none", minWidth: 48, textAlign: "right" }}>
-                    {lineNum}
-                  </span>
-                  {/* Timestamp */}
-                  <span style={{ color: "#4a5568", fontSize: 11, flexShrink: 0, minWidth: 62, paddingRight: 10 }}>
-                    {ts}
-                  </span>
-                  {/* Content */}
-                  <span style={{ color: textColor, fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-all", flex: 1, paddingRight: 14 }}>
-                    {isCmd && <span style={{ color: "#4b5563" }}>$ </span>}
-                    {renderText()}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 function VersionCard({
   title, subtitle, icon, info, status, onCheck, updateUrl,
@@ -480,6 +23,10 @@ function VersionCard({
   const isUpToDate = info && !info.error && !info.update_available && info.latest_version
   const hasUpdate = info && !info.error && info.update_available
   const hasError = info?.error
+
+  const currentDisplay = info?.current_version && info.current_version !== "undefined"
+    ? `v${info.current_version}`
+    : "—"
 
   return (
     <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4 min-h-[220px]">
@@ -512,7 +59,7 @@ function VersionCard({
         <div className="rounded-xl bg-overlay-xs p-3">
           <div className="text-[10px] uppercase tracking-widest text-faint mb-1">Установлена</div>
           <div className="text-lg font-mono font-semibold text-primary">
-            {status === "loading" && !info ? <span className="text-muted text-sm">...</span> : info ? `v${info.current_version}` : "—"}
+            {status === "loading" && !info ? <span className="text-muted text-sm">...</span> : currentDisplay}
           </div>
           {info?.release_date && <div className="text-xs text-muted mt-0.5">{info.release_date}</div>}
         </div>
@@ -561,6 +108,64 @@ function VersionCard({
             Перейти к обновлению →
           </a>
         )}
+      </div>
+    </div>
+  )
+}
+
+const UPDATE_CMD = "cd /root/adminpanel && git pull && docker compose up -d --build"
+
+function ManualUpdateCard() {
+  const [copied, setCopied] = useState(false)
+
+  const copyCmd = () => {
+    navigator.clipboard.writeText(UPDATE_CMD).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div className="rounded-2xl border border-subtle bg-[var(--bg-card)] p-6 flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] flex items-center justify-center text-[var(--accent)]">
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-primary">Обновление панели</div>
+          <div className="text-xs text-muted mt-0.5">Выполните команду на сервере через SSH</div>
+        </div>
+      </div>
+
+      <div className="text-xs text-muted bg-overlay-xs rounded-xl px-3 py-2.5 leading-relaxed">
+        Для обновления панели подключитесь к серверу по SSH и выполните команду ниже. Она загрузит последнюю версию с GitHub, пересоберёт образ и перезапустит контейнер.
+      </div>
+
+      {/* Command block */}
+      <div className="relative group">
+        <div
+          className="rounded-xl px-4 py-3 font-mono text-sm text-emerald-400 select-all overflow-x-auto"
+          style={{ background: "#0c0c0c", border: "1px solid #222" }}
+        >
+          <span className="text-white/30 mr-2 select-none">$</span>{UPDATE_CMD}
+        </div>
+        <button
+          onClick={copyCmd}
+          className="absolute top-2 right-2 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+          style={{
+            background: copied
+              ? "color-mix(in srgb, #22c55e 14%, transparent)"
+              : "color-mix(in srgb, #3b82f6 14%, transparent)",
+            color: copied ? "#4ade80" : "#60a5fa",
+            border: `1px solid color-mix(in srgb, ${copied ? "#22c55e" : "#3b82f6"} 30%, transparent)`,
+          }}
+        >
+          {copied ? "Скопировано" : "Копировать"}
+        </button>
       </div>
     </div>
   )
@@ -637,7 +242,7 @@ export default function Updates() {
             updateUrl={botApiInfo?.update_url}
           />
         </div>
-        <UpdatePanel />
+        <ManualUpdateCard />
       </div>
     </div>
   )
