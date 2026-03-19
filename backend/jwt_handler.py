@@ -20,15 +20,26 @@ if not _SECRET:
     os.environ["ADMINPANEL_JWT_SECRET"] = _SECRET
     # Try to persist to .env file (in /data/ for Docker, or project root for bare-metal)
     for _env_candidate in [
+        Path("/host-project/.env"),  # Docker: host-mounted project (preferred, survives rebuild)
         Path(os.environ.get("ADMINPANEL_DATA_DIR", "")) / ".." / ".env",  # Docker: /data/../.env → /app/.env
-        Path("/host-project/.env"),  # Docker: host-mounted project
         Path(__file__).resolve().parent.parent / ".env",  # bare-metal: project root
     ]:
         try:
             _env_path = _env_candidate.resolve()
             if _env_path.parent.is_dir():
                 _existing = _env_path.read_text(encoding="utf-8") if _env_path.exists() else ""
-                if "ADMINPANEL_JWT_SECRET" not in _existing:
+                import re as _re
+                if _re.search(r"^ADMINPANEL_JWT_SECRET\s*=\s*$", _existing, _re.MULTILINE):
+                    # Key exists but empty — replace with generated secret
+                    _new = _re.sub(
+                        r"^ADMINPANEL_JWT_SECRET\s*=\s*$",
+                        f"ADMINPANEL_JWT_SECRET={_SECRET}",
+                        _existing,
+                        flags=_re.MULTILINE,
+                    )
+                    _env_path.write_text(_new, encoding="utf-8")
+                    break
+                elif "ADMINPANEL_JWT_SECRET" not in _existing:
                     with _env_path.open("a", encoding="utf-8") as _f:
                         _f.write(f"\nADMINPANEL_JWT_SECRET={_SECRET}\n")
                     break

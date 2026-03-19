@@ -70,6 +70,7 @@ async function getCsrfHeaderOnly(): Promise<Record<string, string>> {
 // Флаг чтобы не запускать несколько refresh одновременно
 let _refreshPromise: Promise<boolean> | null = null;
 let _refreshResetTimer: ReturnType<typeof setTimeout> | null = null;
+let _reloadingAfterRefresh = false;
 
 async function tryRefreshToken(): Promise<boolean> {
     if (_refreshPromise) return _refreshPromise;
@@ -107,6 +108,17 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
         if (response.status === 401) {
+            if (_reloadingAfterRefresh) {
+                throw new Error('Сессия обновлена, перезагрузка...');
+            }
+            // Try refresh before redirecting to login
+            const refreshed = await tryRefreshToken();
+            if (refreshed) {
+                // Token refreshed — reload page so all components pick up new cookies
+                _reloadingAfterRefresh = true;
+                window.location.reload();
+                throw new Error('Сессия обновлена, перезагрузка...');
+            }
             if (window.location.pathname !== '/webpanel/login') {
                 window.location.href = '/webpanel/login';
             }
