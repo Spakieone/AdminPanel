@@ -190,11 +190,20 @@ ENV_EOF
   info ".env создан"
 else
   ok ".env уже существует"
-  # Добавить JWT_SECRET если отсутствует (обновление со старой версии)
+  # Добавить JWT_SECRET если отсутствует или пустой (обновление со старой версии)
   if ! grep -q "ADMINPANEL_JWT_SECRET" "$INSTALL_DIR/.env"; then
     JWT_SECRET="$(openssl rand -hex 64 2>/dev/null || head -c 128 /dev/urandom | od -A n -t x1 | tr -d ' \n')"
     echo "ADMINPANEL_JWT_SECRET=${JWT_SECRET}" >> "$INSTALL_DIR/.env"
     info "JWT секрет добавлен в .env"
+  elif grep -qE "^ADMINPANEL_JWT_SECRET=\s*$" "$INSTALL_DIR/.env"; then
+    JWT_SECRET="$(openssl rand -hex 64 2>/dev/null || head -c 128 /dev/urandom | od -A n -t x1 | tr -d ' \n')"
+    sed -i "s|^ADMINPANEL_JWT_SECRET=.*|ADMINPANEL_JWT_SECRET=${JWT_SECRET}|" "$INSTALL_DIR/.env"
+    info "JWT секрет был пустым — сгенерирован новый"
+  fi
+  # Добавить HOST_PROJECT_DIR если отсутствует
+  if ! grep -q "HOST_PROJECT_DIR" "$INSTALL_DIR/.env"; then
+    echo "HOST_PROJECT_DIR=${INSTALL_DIR}" >> "$INSTALL_DIR/.env"
+    info "HOST_PROJECT_DIR добавлен в .env"
   fi
 fi
 

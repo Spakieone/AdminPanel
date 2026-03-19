@@ -15,14 +15,21 @@ except ImportError:
 
 _SECRET: str = os.environ.get("ADMINPANEL_JWT_SECRET", "").strip()
 if not _SECRET:
-    # No secret in env — generate one and persist to .env so sessions survive restarts.
+    # Auto-generate and persist so fresh installs work without manual .env editing.
     _SECRET = secrets.token_urlsafe(48)
     os.environ["ADMINPANEL_JWT_SECRET"] = _SECRET
-    # Try to persist to .env file (in /data/ for Docker, or project root for bare-metal)
+    import sys as _sys
+    print(
+        f"[JWT] WARNING: ADMINPANEL_JWT_SECRET не задан в .env — сгенерирован временный.\n"
+        f"[JWT] Добавьте в .env:  ADMINPANEL_JWT_SECRET={_SECRET}\n"
+        f"[JWT] Без этого сессии будут сбрасываться при каждом перезапуске контейнера.",
+        file=_sys.stderr,
+    )
+    # Try to persist to host .env so next restart picks it up
     for _env_candidate in [
-        Path("/host-project/.env"),  # Docker: host-mounted project (preferred, survives rebuild)
-        Path(os.environ.get("ADMINPANEL_DATA_DIR", "")) / ".." / ".env",  # Docker: /data/../.env → /app/.env
-        Path(__file__).resolve().parent.parent / ".env",  # bare-metal: project root
+        Path("/host-project/.env"),
+        Path(os.environ.get("ADMINPANEL_DATA_DIR", "")) / ".." / ".env",
+        Path(__file__).resolve().parent.parent / ".env",
     ]:
         try:
             _env_path = _env_candidate.resolve()
@@ -30,7 +37,6 @@ if not _SECRET:
                 _existing = _env_path.read_text(encoding="utf-8") if _env_path.exists() else ""
                 import re as _re
                 if _re.search(r"^ADMINPANEL_JWT_SECRET\s*=\s*$", _existing, _re.MULTILINE):
-                    # Key exists but empty — replace with generated secret
                     _new = _re.sub(
                         r"^ADMINPANEL_JWT_SECRET\s*=\s*$",
                         f"ADMINPANEL_JWT_SECRET={_SECRET}",
@@ -38,10 +44,12 @@ if not _SECRET:
                         flags=_re.MULTILINE,
                     )
                     _env_path.write_text(_new, encoding="utf-8")
+                    print(f"[JWT] Секрет записан в {_env_path}", file=_sys.stderr)
                     break
                 elif "ADMINPANEL_JWT_SECRET" not in _existing:
                     with _env_path.open("a", encoding="utf-8") as _f:
                         _f.write(f"\nADMINPANEL_JWT_SECRET={_SECRET}\n")
+                    print(f"[JWT] Секрет добавлен в {_env_path}", file=_sys.stderr)
                     break
         except Exception:
             continue
