@@ -2194,20 +2194,30 @@ async def lk_smtp_test(request: Request, session: Dict[str, Any] = Depends(_requ
         msg["From"] = smtp_from
         msg["To"] = to_email
         msg.attach(_MIMEText("Это тестовое письмо. SMTP настроен корректно.", "plain", "utf-8"))
+        import ssl as _ssl
+        _ctx = _ssl.create_default_context()
         if smtp_port == 465:
-            import ssl as _ssl
-            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10, context=_ssl.create_default_context()) as s:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15, context=_ctx) as s:
                 s.login(smtp_user, smtp_pass)
                 s.sendmail(smtp_from, [to_email], msg.as_string())
         else:
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as s:
-                s.starttls()
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as s:
+                if smtp_port != 25:
+                    s.ehlo()
+                    s.starttls(context=_ctx)
+                    s.ehlo()
                 s.login(smtp_user, smtp_pass)
                 s.sendmail(smtp_from, [to_email], msg.as_string())
         return {"ok": True}
-    except Exception as exc:
+    except smtplib.SMTPAuthenticationError as exc:
+        logger.error("SMTP auth error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка авторизации SMTP: {exc.smtp_error.decode('utf-8', errors='replace') if isinstance(exc.smtp_error, bytes) else exc.smtp_error}")
+    except smtplib.SMTPException as exc:
         logger.error("SMTP send error: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка отправки письма")
+        raise HTTPException(status_code=500, detail=f"Ошибка SMTP: {exc}")
+    except OSError as exc:
+        logger.error("SMTP connection error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Не удалось подключиться к {smtp_host}:{smtp_port} — {exc}")
 
 
 def _lk_site_config_path(lk_profile_id: str) -> Path:
@@ -3449,20 +3459,24 @@ async def lk_email_request_code(request: Request) -> Response:
         msg["To"] = email
         msg.attach(MIMEText(f"Ваш код для входа: {code}\n\nКод действителен 5 минут.\nЕсли вы не запрашивали код — проигнорируйте это письмо.", "plain", "utf-8"))
         msg.attach(MIMEText(html_body, "html", "utf-8"))
+        import ssl as _ssl
+        _ctx = _ssl.create_default_context()
         if smtp_port == 465:
-            import ssl as _ssl
-            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10, context=_ssl.create_default_context()) as s:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15, context=_ctx) as s:
                 s.login(smtp_user, smtp_pass)
                 s.sendmail(smtp_from, [email], msg.as_string())
         else:
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as s:
-                s.starttls()
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as s:
+                if smtp_port != 25:
+                    s.ehlo()
+                    s.starttls(context=_ctx)
+                    s.ehlo()
                 s.login(smtp_user, smtp_pass)
                 s.sendmail(smtp_from, [email], msg.as_string())
         logger.info(f"[lk_otp] sent to {email[:3]}***@{email.split('@')[-1]}")
     except Exception as exc:
         logger.error("[lk_otp] SMTP error: %s", exc, exc_info=True)
-        raise HTTPException(status_code=503, detail="Ошибка отправки письма. Проверьте настройки SMTP.")
+        raise HTTPException(status_code=503, detail=f"Ошибка отправки письма: {exc}")
 
     # Передаём код боту через внутренний эндпоинт (store-code, требует токен)
     store_resp = await _proxy_to_lk_module_api_with_body(
