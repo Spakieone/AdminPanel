@@ -1004,7 +1004,13 @@ async def _lk_tg_call_bot(path: str, method: str = "GET", body: Optional[bytes] 
             detail = resp.json().get("detail", "Ошибка бота")
         except Exception:
             detail = "Ошибка бота"
-        raise HTTPException(status_code=resp.status_code, detail=detail)
+        # Не проксировать 401/403 от бот-API фронту — фронт примет за невалидную сессию
+        # и начнёт цикл refresh/reload. Вместо этого возвращаем 502 (ошибка связи с ботом)
+        status = resp.status_code
+        if status in (401, 403):
+            status = 502
+            detail = f"Ошибка авторизации бот-API: {detail}. Проверьте токен в настройках подключения."
+        raise HTTPException(status_code=status, detail=detail)
     try:
         return resp.json()
     except Exception:

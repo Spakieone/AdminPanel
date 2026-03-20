@@ -70,7 +70,8 @@ async function getCsrfHeaderOnly(): Promise<Record<string, string>> {
 // Флаг чтобы не запускать несколько refresh одновременно
 let _refreshPromise: Promise<boolean> | null = null;
 let _refreshResetTimer: ReturnType<typeof setTimeout> | null = null;
-let _reloadingAfterRefresh = false;
+// Время последнего успешного refresh — если недавно был, не редиректим на логин
+let _lastRefreshTime = 0;
 
 async function tryRefreshToken(): Promise<boolean> {
     if (_refreshPromise) return _refreshPromise;
@@ -78,7 +79,7 @@ async function tryRefreshToken(): Promise<boolean> {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-    }).then(r => r.ok).catch(() => false).finally(() => {
+    }).then(r => { if (r.ok) _lastRefreshTime = Date.now(); return r.ok; }).catch(() => false).finally(() => {
         // Сбрасываем промис через небольшую задержку, чтобы параллельные вызовы
         // не создавали новый refresh пока предыдущий только что завершился
         if (_refreshResetTimer) clearTimeout(_refreshResetTimer);
@@ -108,16 +109,17 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
         if (response.status === 401) {
-            if (_reloadingAfterRefresh) {
-                throw new Error('Сессия обновлена, перезагрузка...');
-            }
-            // Try refresh before redirecting to login
+            // Пробуем обновить токен
             const refreshed = await tryRefreshToken();
             if (refreshed) {
-                // Token refreshed — reload page so all components pick up new cookies
-                _reloadingAfterRefresh = true;
-                window.location.reload();
-                throw new Error('Сессия обновлена, перезагрузка...');
+                // Токен обновлён — кидаем ошибку, следующие запросы подхватят новые куки
+                // НЕ делаем reload чтобы избежать бесконечного цикла при 401 от бот-API
+                throw new Error('Сессия обновлена, повторите действие.');
+            }
+            // Рефреш не удался — но если недавно рефрешили (<30с), не кидаем на логин
+            // (401 может быть от бот-API, а не от панели)
+            if (Date.now() - _lastRefreshTime < 30000) {
+                throw new Error('Ошибка запроса (401)');
             }
             if (window.location.pathname !== '/webpanel/login') {
                 window.location.href = '/webpanel/login';

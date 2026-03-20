@@ -77,13 +77,22 @@ async def proxy_to_bot_impl(
             return error_fn(502, f"Bot API недоступен: {e.__class__.__name__}")
         return JSONResponse(status_code=502, content={"detail": f"Bot API недоступен: {e.__class__.__name__}"})
 
+    # Не проксировать 401/403 от бот-API — фронт примет за невалидную сессию панели
+    # и начнёт цикл refresh/reload. Возвращаем 502 вместо этого.
+    status = upstream.status_code
+    if status in (401, 403):
+        return JSONResponse(
+            status_code=502,
+            content={"detail": "Ошибка авторизации бот-API. Проверьте токен в настройках подключения."},
+        )
+
     content_type = upstream.headers.get("content-type", "")
     if "application/json" in content_type:
         try:
             response_data = upstream.json()
-            return JSONResponse(status_code=upstream.status_code, content=response_data)
+            return JSONResponse(status_code=status, content=response_data)
         except Exception:
-            return Response(status_code=upstream.status_code, content=upstream.content, media_type=content_type)
+            return Response(status_code=status, content=upstream.content, media_type=content_type)
 
-    return Response(status_code=upstream.status_code, content=upstream.content, media_type=content_type or None)
+    return Response(status_code=status, content=upstream.content, media_type=content_type or None)
 

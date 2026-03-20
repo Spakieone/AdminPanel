@@ -70,12 +70,20 @@ async def proxy_to_remnawave_impl(
                 logger.debug("[PROXY] Request error: %s", e)
             raise HTTPException(status_code=502, detail=f"Remnawave API недоступен: {e.__class__.__name__}")
 
+    # Не проксировать 401/403 от upstream — фронт примет за невалидную сессию панели
+    status = upstream.status_code
+    if status in (401, 403):
+        return JSONResponse(
+            status_code=502,
+            content={"detail": "Ошибка авторизации Remnawave API. Проверьте токен в настройках."},
+        )
+
     content_type = upstream.headers.get("content-type", "")
     if "application/json" in content_type:
         try:
-            return JSONResponse(status_code=upstream.status_code, content=upstream.json())
+            return JSONResponse(status_code=status, content=upstream.json())
         except Exception:
-            return Response(status_code=upstream.status_code, content=upstream.content, media_type=content_type)
+            return Response(status_code=status, content=upstream.content, media_type=content_type)
 
-    return Response(status_code=upstream.status_code, content=upstream.content, media_type=content_type or None)
+    return Response(status_code=status, content=upstream.content, media_type=content_type or None)
 
