@@ -508,8 +508,8 @@ export default function SystemMonitorWidget({
       : 'relative z-10 w-full h-full'
   const cardClass =
     variant === 'fixed'
-      ? 'w-[min(380px,calc(100vw-1.5rem))] rounded-2xl border border-default bg-overlay-xs overflow-hidden'
-      : 'w-full h-full rounded-2xl border border-default bg-overlay-xs overflow-hidden'
+      ? 'w-[min(380px,calc(100vw-1.5rem))] rounded-2xl border border-default bg-[var(--bg-surface)] shadow-2xl overflow-hidden'
+      : 'w-full h-full rounded-2xl border border-default bg-[var(--bg-surface)] shadow-2xl overflow-hidden'
 
   return (
     <motion.div
