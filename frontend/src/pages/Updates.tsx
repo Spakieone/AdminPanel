@@ -194,12 +194,18 @@ export default function Updates() {
   const checkPanel = async () => {
     setPanelStatus("loading")
     try {
-      const res = await apiFetch("/api/version/panel")
+      const res = await apiFetch("/webpanel/api/version/panel")
+      if (!res.ok) {
+        const text = await res.text().catch(() => "")
+        setPanelInfo({ current_version: "—", latest_version: null, update_available: false, error: `HTTP ${res.status}: ${text.slice(0, 100) || res.statusText}` })
+        setPanelStatus("error")
+        return
+      }
       const data = await res.json()
       setPanelInfo(data)
       setPanelStatus(data.error ? "error" : "done")
-    } catch {
-      setPanelInfo({ current_version: "—", latest_version: null, update_available: false, error: "Ошибка соединения" })
+    } catch (e) {
+      setPanelInfo({ current_version: "—", latest_version: null, update_available: false, error: `Ошибка соединения: ${e instanceof Error ? e.message : String(e)}` })
       setPanelStatus("error")
     }
   }
@@ -207,12 +213,18 @@ export default function Updates() {
   const checkBotApi = async () => {
     setBotApiStatus("loading")
     try {
-      const res = await apiFetch("/api/version/bot-api")
+      const res = await apiFetch("/webpanel/api/version/bot-api")
+      if (!res.ok) {
+        const text = await res.text().catch(() => "")
+        setBotApiInfo({ current_version: "—", latest_version: null, update_available: false, error: `HTTP ${res.status}: ${text.slice(0, 100) || res.statusText}` })
+        setBotApiStatus("error")
+        return
+      }
       const data = await res.json()
       setBotApiInfo(data)
       setBotApiStatus(data.error ? "error" : "done")
-    } catch {
-      setBotApiInfo({ current_version: "—", latest_version: null, update_available: false, error: "Ошибка соединения" })
+    } catch (e) {
+      setBotApiInfo({ current_version: "—", latest_version: null, update_available: false, error: `Ошибка соединения: ${e instanceof Error ? e.message : String(e)}` })
       setBotApiStatus("error")
     }
   }
