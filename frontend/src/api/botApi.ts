@@ -1434,7 +1434,7 @@ export interface Partner {
   tg_id: number
   balance: number
   percent: number | null
-  percent_custom: boolean
+  percent_custom: number | boolean
   code: string | null
   method: string | null
   referred_count: number
@@ -1549,7 +1549,7 @@ export interface UserPartnerData {
   partner_balance: number
   partner_code: string | null
   percent: number
-  percent_custom: boolean
+  percent_custom: number | boolean
   default_percent: number
   referred_count: number
   who_invited: number | null
