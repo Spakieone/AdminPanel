@@ -283,6 +283,16 @@ export async function confirm2fa(code: string): Promise<{ ok: boolean; backup_co
     return handleResponse(response);
 }
 
+export async function changePassword(oldPassword: string, newPassword: string): Promise<{ ok: boolean }> {
+    const headers = await getAuthHeaders();
+    const response = await apiFetch(`${API_BASE}/api/auth/change-password`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+    });
+    return handleResponse(response);
+}
+
 export async function disable2fa(password: string): Promise<{ ok: boolean }> {
     const headers = await getAuthHeaders();
     const response = await apiFetch(`${API_BASE}/api/auth/2fa`, {
